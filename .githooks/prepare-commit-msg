@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# prepare-commit-msg
+#
+# This is the piece that makes work done in VS Code show up in the platform.
+#
+# When you start a task from the platform, it creates a branch named
+# task/<issue>/<slug>. This hook reads the issue number back out of the branch
+# name and appends it as a trailer on every commit. The webhook then attributes
+# the commit to the task without anyone typing an id, and without anything
+# watching you type.
+#
+# Install once per clone:
+#   git config core.hooksPath .githooks
+#   chmod +x .githooks/prepare-commit-msg
+
+MSG_FILE="$1"
+SOURCE="$2"
+
+# Leave merges, squashes and amends alone.
+case "$SOURCE" in
+  merge|squash) exit 0 ;;
+esac
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+
+# task/142/fall-detection-threshold  ->  142
+# agent/qa/issue-142                 ->  142
+ISSUE="$(printf '%s' "$BRANCH" | sed -nE 's#^(task|agent)/([a-z-]+/)?(issue-)?([0-9]+).*#\4#p')"
+
+[ -z "$ISSUE" ] && exit 0
+grep -qi '^iHelp-Task:' "$MSG_FILE" && exit 0
+
+printf '\niHelp-Task: #%s\n' "$ISSUE" >> "$MSG_FILE"

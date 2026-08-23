@@ -1,0 +1,48 @@
+{
+  "//": [
+    "Shared Claude Code settings. Committed to the repo, so every clone gets",
+    "them — nobody configures anything per machine.",
+    "",
+    "The hooks below are what capture agent work done LOCALLY in VS Code. The",
+    "platform dispatches runs on GitHub and therefore sees those completely. It",
+    "cannot see a session on someone's laptop unless that session reports in.",
+    "These hooks make it report in.",
+    "",
+    "What is sent: who, which branch, which repo, when a session started and",
+    "ended, and which files were edited. What is NOT sent: prompts, code",
+    "contents, keystrokes, or anything typed. The platform records that an agent",
+    "session happened and on what — not what was said inside it.",
+    "",
+    "This is best-effort by design. A determined person can disable it. That is",
+    "acceptable, because the durable record is the commit and the PR, which no",
+    "hook is required to produce. These hooks add texture; git is the ledger."
+  ],
+
+  "env": {
+    "IHELP_PLATFORM_URL": "https://ops.ihelprobotics.com"
+  },
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "curl -sf -m 3 -X POST \"$IHELP_PLATFORM_URL/api/agents/local\" -H 'Content-Type: application/json' -d \"{\\\"event\\\":\\\"start\\\",\\\"gh_login\\\":\\\"$(git config user.email)\\\",\\\"repo\\\":\\\"$(basename $(git rev-parse --show-toplevel))\\\",\\\"branch\\\":\\\"$(git rev-parse --abbrev-ref HEAD)\\\",\\\"session\\\":\\\"$CLAUDE_SESSION_ID\\\"}\" >/dev/null 2>&1 || true"
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "curl -sf -m 3 -X POST \"$IHELP_PLATFORM_URL/api/agents/local\" -H 'Content-Type: application/json' -d \"{\\\"event\\\":\\\"stop\\\",\\\"gh_login\\\":\\\"$(git config user.email)\\\",\\\"repo\\\":\\\"$(basename $(git rev-parse --show-toplevel))\\\",\\\"branch\\\":\\\"$(git rev-parse --abbrev-ref HEAD)\\\",\\\"session\\\":\\\"$CLAUDE_SESSION_ID\\\",\\\"files_changed\\\":$(git status --porcelain | wc -l)}\" >/dev/null 2>&1 || true"
+          }
+        ]
+      }
+    ]
+  }
+}
