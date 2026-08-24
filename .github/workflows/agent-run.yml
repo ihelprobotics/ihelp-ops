@@ -353,3 +353,6 @@ jobs:
             callback.json
           if-no-files-found: warn
           retention-days: 14
+
+# Registration touch: see git log. GitHub registers a workflow when it
+# processes a push that touches the file itself.

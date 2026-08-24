@@ -209,3 +209,5 @@ jobs:
         run: |
           echo "::error::The Reviewer found blocking issues. They are listed in the pull request comment."
           exit 1
+
+# Registration touch: see git log.
