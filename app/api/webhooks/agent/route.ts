@@ -10,9 +10,25 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 
 export async function POST(req: Request) {
-  const secret = req.headers.get("x-ops-secret");
-  if (process.env.AGENT_CALLBACK_SECRET && secret !== process.env.AGENT_CALLBACK_SECRET) {
-    return NextResponse.json({ error: "Bad secret." }, { status: 401 });
+  // Fail closed. This guard used to read
+  //   if (process.env.AGENT_CALLBACK_SECRET && secret !== ...)
+  // which skipped the check entirely whenever the variable was unset — so a
+  // deploy that forgot it silently accepted anyone. This route is excluded from
+  // the middleware matcher, so there is no session in front of it: an
+  // unauthenticated caller could mark any run succeeded, with any pr_url and
+  // any cost. A missing key is an error naming the missing key, never a
+  // disabled guard.
+  if (!process.env.AGENT_CALLBACK_SECRET) {
+    return NextResponse.json(
+      { error: "AGENT_CALLBACK_SECRET is not set, so this callback cannot be verified. Set it here and use the same value as PLATFORM_WEBHOOK_SECRET in the code repo." },
+      { status: 500 }
+    );
+  }
+  if (req.headers.get("x-ops-secret") !== process.env.AGENT_CALLBACK_SECRET) {
+    return NextResponse.json(
+      { error: "Bad secret. The value here and PLATFORM_WEBHOOK_SECRET in the code repo do not match." },
+      { status: 401 }
+    );
   }
 
   const { run_id, status, pr_url, logs_url, cost_usd, input_tokens, output_tokens } = await req.json();
