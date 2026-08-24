@@ -84,9 +84,14 @@ export async function POST(req: Request) {
   const p = JSON.parse(raw);
   const repo = p.repository?.full_name;
 
+  // sql.json(p), not JSON.stringify(p)::jsonb. postgres.js sends a JS string as
+  // an already-json-typed parameter, so the cast would store the string itself
+  // as a JSON scalar — payload becomes "{\"action\":\"opened\"}" rather than an
+  // object, and every payload->>'...' read afterwards returns null. The insert
+  // succeeds either way, which is what makes it worth naming here.
   const record = (kind: string, number: number | null, actor: string | null, at: string, agent = false) =>
     sql`insert into gh_event (kind, repo, number, actor, agent_authored, occurred_at, payload)
-        values (${kind}, ${repo}, ${number}, ${actor}, ${agent}, ${at}, ${JSON.stringify(p)}::jsonb)`;
+        values (${kind}, ${repo}, ${number}, ${actor}, ${agent}, ${at}, ${sql.json(p)})`;
 
   switch (event) {
     // Every push from VS Code lands here, commit by commit.

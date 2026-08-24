@@ -61,19 +61,27 @@ Do all of these before writing any code. Each one blocks a later step.
 Keep a scratch file open and paste each value in as you get it. You will need
 eight values in total.
 
-## 1.1 Neon (database)
+## 1.1 Supabase (database)
 
-1. Go to `neon.tech`, sign in with GitHub.
+1. Go to `supabase.com`, sign in with GitHub.
 2. **Create project.** Name `ihelp-ops`. Region: Singapore or Mumbai — nearest
    to Bengaluru.
-3. On the dashboard, **Connection string** → select **Pooled connection**.
+3. **Project Settings → Database → Connection string → Transaction pooler.**
+   Not Session, not Direct connection.
 4. Copy it. It looks like
-   `postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`
+   `postgresql://postgres.xxxx:pass@aws-0-<region>.pooler.supabase.com:6543/postgres`
 
 → Save as `DATABASE_URL`
 
-**The pooled string matters.** The direct one exhausts connections on
-serverless.
+**Check the port is 6543.** Session pooler (5432) and the direct connection both
+exhaust on serverless, usually within a day of real traffic rather than
+immediately — so it passes every test you run today.
+
+The transaction pooler cannot use prepared statements. `lib/db.ts` sets
+`prepare: false` for this; without it you get intermittent
+`prepared statement does not exist` under load, which also passes in
+development. Both settings are already in the file — this is here so the
+symptom is recognisable if someone changes them.
 
 ## 1.2 Google OAuth (login)
 
@@ -251,7 +259,7 @@ A secret in git history is a rotation, not a delete.
 
 ## 3.1 Apply the schema
 
-Neon dashboard → **SQL Editor**. Paste and run each file **in this order**, one
+Supabase dashboard → **SQL Editor**. Paste and run each file **in this order**, one
 at a time:
 
 1. `db/schema.sql`
@@ -321,7 +329,7 @@ npm run dev
 
 Open `http://localhost:3000`. You should be redirected to `/login`. Sign in.
 
-Check the row exists — Neon SQL editor:
+Check the row exists — Supabase SQL editor:
 
 ```sql
 select email, name, gh_login, role, agent_tier from app_user;
@@ -548,8 +556,10 @@ Skip loudly if DATABASE_URL is absent — a green run without these tests must n
 imply isolation holds.
 ```
 
-**Check:** those three tests pass against Neon. Not asserted, not assumed —
-run.
+**Check:** `npm run test:rls` passes against Supabase. Not asserted, not
+assumed — run. It refuses to run without `DATABASE_URL`, and refuses to run as a
+superuser, because policies do not apply to one and a pass under it means
+nothing.
 
 Seed some data to look at:
 
@@ -771,8 +781,9 @@ UI and UX come after. The loop working end to end is what matters first.
 | Agent runs, no changes | Issue too vague | Rewrite the issue with a concrete outcome |
 | Workflow push denied | Read-only workflow permissions | Settings → Actions → General |
 | Webhook 401 | Secret mismatch | Same value both sides |
-| RLS returns nothing | Session context not set | `set_config` in the same transaction |
-| Neon connection exhausted | Direct instead of pooled string | Use the `-pooler` host |
+| RLS returns nothing | Context set in a separate call | Use `withUser` — context and query in one transaction |
+| `prepared statement does not exist` | `prepare: false` missing | The transaction pooler requires it |
+| Connections exhausted | Session pooler or direct string | Use the transaction pooler, port 6543 |
 | Cron never fires | `vercel.json` not committed | Commit and redeploy |
 
 # Appendix B — Useful commands

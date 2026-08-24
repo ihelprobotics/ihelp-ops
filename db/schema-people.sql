@@ -94,8 +94,17 @@ create table if not exists notification_log (
 
 -- One nudge per person per day, at most. A system that emails twice about the
 -- same thing gets filtered, and then it cannot reach anyone about anything.
+--
+-- The zone is written out rather than left to the server's. sent_at::date is
+-- not IMMUTABLE — it depends on the session TimeZone — so Postgres refuses to
+-- index it, and this whole file used to stop here, taking local_session with
+-- it. Naming the zone makes the expression immutable and, more importantly,
+-- fixes where the day boundary falls: the digest goes out at 18:00 IST, so
+-- "one per day" has to mean one per Indian day. The lookup in
+-- ops/lib/daily-email.mjs uses this identical expression, which is what lets it
+-- use this index.
 create unique index if not exists nudge_once_per_day
-  on notification_log (user_id, kind, (sent_at::date))
+  on notification_log (user_id, kind, ((sent_at at time zone 'Asia/Kolkata')::date))
   where kind = 'nudge';
 
 -- ---------------------------------------------------------------------------

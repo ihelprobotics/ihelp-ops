@@ -45,22 +45,69 @@ Read from `gh_event`. Never stored on the task, never typed.
 ## Row-level security
 
 Applies to `goal`, `goal_evidence`, `one_on_one`, `feedback_note`. Both ENABLE
-and FORCE are set. Session context is set per transaction:
+and FORCE are set. Unset context returns no rows — fail closed.
 
-```sql
-select set_config('app.user_id',   $1, true);
-select set_config('app.user_role', $2, true);
+Session context is set per transaction, and **the context and the query must be
+in the same transaction.** Use `withUser` from `lib/db.ts`:
+
+```ts
+import { withUser } from "@/lib/db";
+
+const notes = await withUser(session.user.id, session.user.role, (tx) =>
+  tx`select held_on, notes, agreed_actions from one_on_one where subject_id = ${id}`
+);
 ```
 
-`true` makes it transaction-scoped so it cannot leak across a pooled connection.
-Unset context returns no rows — fail closed.
+Never this:
+
+```ts
+await sql`select set_config('app.user_id', ${id}, true)`;
+await sql`select * from one_on_one`;          // <- a different transaction
+```
+
+The `true` argument makes the setting transaction-scoped, which is what stops it
+leaking across a pooled connection to the next request. Any pooled driver —
+Supabase's Supavisor, Neon's HTTP driver — treats each separate `sql` call as
+its own transaction, so the second query above runs with no context at all. RLS
+then does exactly what it should and returns nothing. **The failure is silent:**
+zero rows reads as "this person has no notes", not as a bug, and it will not
+look wrong until someone notices a person's history is permanently empty.
+
+`db/rls-check.mjs` proves this holds. `npm run test:rls` with `DATABASE_URL`
+set; it refuses to run without one, and refuses to run as a superuser, because
+policies do not apply to superusers and a pass under one would mean nothing.
+
+These four tables have no DELETE policy. Notes are append-only through the
+application: the author may correct one for seven days, and nobody may remove
+one. A note that can be quietly deleted is worse than no note.
+
+## Erasure
+
+Append-only is a design decision, not a position on the law. A person has a
+right to erasure under the DPDP Act, and this schema does not implement it —
+deliberately, because a delete button on a 1:1 is a delete button on the record
+of what was said about someone, and the person most likely to want it gone is
+rarely the subject.
+
+So erasure is a human act with a paper trail. The CTO executes it as a direct
+SQL statement against the database, outside the application, with a written
+reason recorded alongside the request. Two properties follow, and both are the
+point: it cannot happen by accident, and it cannot happen without someone's name
+on it. If it were routine enough to build a screen for, it would be routine
+enough to do quietly.
+
+The same applies to a departing intern's `app_user` row. Deactivate with
+`active = false`; do not delete. The row is referenced by `agent_run`,
+`commit_event` attribution and every note, and removing it would rewrite history
+that other people's records depend on.
 
 `app_reads_all_notes()` currently returns true for `cto` only. Changing who can
 read every 1:1 is a one-line change in that one function, deliberately.
 
 ## Rules
 
-- Every query touching a person's data sets session context first.
+- Every query touching a person's data goes through `withUser`. Not "sets the
+  context first" — in the same transaction, which is what `withUser` is for.
 - Never `select *` from `one_on_one` in a shared context.
 - Reads of a 1:1 by someone who is neither author nor subject insert a row in
   `note_access_log`. The subject can see that log.

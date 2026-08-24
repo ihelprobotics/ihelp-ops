@@ -4,7 +4,7 @@
   Browser
      │  Google sign-in (NextAuth v5)
      ▼
-  Next.js on Vercel ──────────► Neon Postgres
+  Next.js on Vercel ──────────► Supabase Postgres
      │      ▲                     (users, runs, events,
      │      │                      leave, goals, notes)
      │      │
@@ -74,8 +74,18 @@ Agent tiers: `week1`, `week2`, `full`.
 
 ## Environments
 
-Local: `npm run dev` against the same Neon branch is fine at this size. Use a
-Neon branch per environment once more than two people develop.
+Local: `npm run dev` against the same Supabase project is fine at this size.
+Supabase has no database branching, so once more than two people develop, add a
+second project for development rather than branching one — this is the thing
+Neon did better, and it is the cost of the choice.
 
-Production: Vercel. Migrations applied out of band through the Neon SQL editor;
-the app connects as an unprivileged role and never holds an admin credential.
+Production: Vercel. Migrations applied out of band through the Supabase SQL
+editor; the app connects as an unprivileged role and never holds an admin
+credential. That is not hygiene, it is load-bearing: row-level security does not
+apply to a superuser, so connecting as one silently disables every policy in
+`schema-people-growth.sql`. `npm run test:rls` refuses to run as a superuser for
+the same reason.
+
+`DATABASE_URL` is the transaction pooler on port 6543. The session pooler (5432)
+and the direct connection both exhaust on serverless. The transaction pooler
+cannot use prepared statements, which is why the client sets `prepare: false`.

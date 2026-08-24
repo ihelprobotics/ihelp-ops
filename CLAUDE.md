@@ -17,9 +17,15 @@ can inflate it. Every feature decision in this repo follows from that.
 
 ## Stack
 
-Next.js 15 App Router · TypeScript · Postgres on Neon (`@neondatabase/serverless`)
-· NextAuth v5 with Google · deployed on Vercel. Agent execution happens in
-GitHub Actions, not here.
+Next.js 15 App Router · TypeScript · Postgres on Supabase (`postgres`, the
+postgres.js driver) · NextAuth v5 with Google · deployed on Vercel. Agent
+execution happens in GitHub Actions, not here.
+
+`DATABASE_URL` is the Supabase **transaction pooler** on port 6543, never the
+session pooler on 5432 and never the direct connection. The client sets
+`prepare: false`, which the transaction pooler requires — without it you get
+intermittent `prepared statement does not exist` under load, and it passes in
+development.
 
 ## Engineering rules
 

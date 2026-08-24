@@ -1,0 +1,5 @@
+# Scripts that must keep LF, whatever the checkout platform. A bash hook or an
+# ops script stored with CRLF fails on Linux with "bad interpreter".
+.githooks/*  text eol=lf
+*.sh         text eol=lf
+*.mjs        text eol=lf

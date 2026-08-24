@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:rls": "node db/rls-check.mjs"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4",
+    "postgres": "^3.4.5",
     "next": "^15.1.0",
     "next-auth": "^5.0.0-beta.25",
     "react": "^19.0.0",

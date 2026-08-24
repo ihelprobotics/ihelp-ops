@@ -1,9 +1,10 @@
-import { neon } from "@neondatabase/serverless";
+// ops/lib/db.mjs — Supabase variant
+//
+// Lazy on purpose: this module is imported by the Vercel cron route as well as
+// the CLI, so a hard failure at import time would kill the function before its
+// error handler could name the missing variable.
 
-// Lazy on purpose. This module is imported by the Vercel cron route as well as
-// the CLI, and a process.exit() at module load would kill the function before
-// its error handler could report which variable was missing — which is exactly
-// the "name the missing thing" rule this codebase is built on.
+import postgres from "postgres";
 
 let _sql;
 
@@ -12,7 +13,7 @@ export const sql = (...args) => {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL is not set. The digest cannot run without it — an empty result would be reported as a quiet team.");
     }
-    _sql = neon(process.env.DATABASE_URL);
+    _sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 3 });
   }
   return _sql(...args);
 };

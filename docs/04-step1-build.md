@@ -1,6 +1,6 @@
 # Step 1 — Build everything end to end
 
-Goal: the whole platform working on `localhost:3000` against real Neon, real
+Goal: the whole platform working on `localhost:3000` against real Supabase, real
 GitHub, real agent runs. Nothing deployed yet.
 
 Work through the phases in order. **Stop at the end of each and verify the
@@ -15,7 +15,7 @@ Vivek does these; the agent cannot.
 
 | Need | Where |
 |---|---|
-| Neon project, pooled connection string | neon.tech |
+| Supabase project, transaction pooler string (port 6543) | supabase.com |
 | Google OAuth client (Web), redirect `http://localhost:3000/api/auth/callback/google` | Google Cloud → Credentials |
 | GitHub fine-grained PAT: Actions RW, Contents RW, Pull requests RW, Issues RW, Metadata R | GitHub → Developer settings |
 | Anthropic API key **with a spending limit set** | Claude Console |
@@ -29,7 +29,7 @@ Fill `.env.local` from `.env.example`. `AUTH_SECRET` is `openssl rand -base64 32
 ## Phase 1 — Schema and auth
 
 - Apply `db/schema.sql`, then `schema-people.sql`, then
-  `schema-people-growth.sql` in the Neon SQL editor.
+  `schema-people-growth.sql` in the Supabase SQL editor.
 - `npm install && npm run dev`.
 - Sign in with Google. Confirm a row appears in `app_user`.
 - Link yourself: set `gh_login`, `role='cto'`, `agent_tier='full'` for your row.
@@ -105,7 +105,7 @@ Locally, use a tunnel (`ngrok` or similar) or defer this to Step 2.
 - every subject can read every note about themselves
 - unset session context returns zero rows
 
-**Acceptance:** those three assertions pass as tests against Neon.
+**Acceptance:** `npm run test:rls` passes against Supabase.
 
 ---
 

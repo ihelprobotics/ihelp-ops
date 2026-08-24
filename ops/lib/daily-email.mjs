@@ -89,9 +89,15 @@ for (const p of people) {
 // 1. Nudges — to the person, plainly, once
 // --------------------------------------------------------------------------
 for (const p of quiet) {
+  // The same expression as the nudge_once_per_day index, deliberately. If this
+  // said current_date it would read the server's zone (UTC) while the index
+  // counted Indian days, and the two would disagree for the five and a half
+  // hours that matter most — the digest fires at 18:00 IST.
   const already = await sql`
     select 1 from notification_log
-    where user_id = ${p.id} and kind = 'nudge' and sent_at::date = current_date
+    where user_id = ${p.id} and kind = 'nudge'
+      and (sent_at at time zone 'Asia/Kolkata')::date
+        = (now() at time zone 'Asia/Kolkata')::date
   `;
   if (already.length) continue;
 
