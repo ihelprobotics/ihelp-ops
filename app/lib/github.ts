@@ -18,6 +18,87 @@ import { sql } from "@/lib/db";
 const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 
+// ---------------------------------------------------------------------------
+// One way in and out of the GitHub API
+// ---------------------------------------------------------------------------
+// Every call here used to build its own headers from process.env.GH_DISPATCH_TOKEN
+// without checking it, and then read the response as though it had succeeded.
+// With the token missing or the repository invisible, GitHub answers
+// {"message": "Bad credentials"} with a 401 — and the old code walked straight
+// into main.object.sha, so the person starting a task saw
+// "Cannot read properties of undefined (reading 'sha')". That names a property.
+// It does not name the token, which is the thing that was actually wrong.
+
+type GhOptions = Omit<RequestInit, "headers"> & {
+  headers?: Record<string, string>;
+  /** Statuses that are an answer rather than a failure — 422 for "branch exists". */
+  allow?: number[];
+};
+
+function explain(status: number): string {
+  if (status === 401) return "GH_DISPATCH_TOKEN is invalid or expired.";
+  if (status === 403) return "GH_DISPATCH_TOKEN lacks a permission this needs, or the rate limit is spent.";
+  // Worth stating plainly: a fine-grained token returns 404, not 403, for a
+  // repository outside its access list. The obvious reading — "it does not
+  // exist" — sends people to check the name, which is usually fine.
+  if (status === 404) return "Either the repository name is wrong, or GH_DISPATCH_TOKEN's repository access list does not include it — a fine-grained token answers 404, not 403, for a repo it cannot see.";
+  return "";
+}
+
+/**
+ * Fetch from the GitHub API. Checks the token once, checks the response, and
+ * throws an error naming both. Returns the status alongside the parsed body so
+ * a caller can treat an expected status as an answer.
+ */
+async function ghFetch(path: string, opts: GhOptions = {}): Promise<{ status: number; body: any }> {
+  const { allow = [], headers, ...init } = opts;
+
+  const token = process.env.GH_DISPATCH_TOKEN;
+  if (!token) {
+    throw new Error(
+      "GH_DISPATCH_TOKEN is not set, so GitHub cannot be reached. Nothing on this page works without it — set it in the environment rather than reading an empty board as a quiet week."
+    );
+  }
+
+  const res = await fetch(`https://api.github.com${path}`, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...headers,
+    },
+  });
+
+  if (!res.ok && !allow.includes(res.status)) {
+    const detail = (await res.text()).slice(0, 400);
+    throw new Error(`GitHub returned ${res.status} for ${path}. ${explain(res.status)} ${detail}`.replace(/\s+/g, " ").trim());
+  }
+
+  // 204 has no body; a body that is not JSON would otherwise throw something
+  // about a token at position 0, which describes a parser rather than a cause.
+  if (res.status === 204) return { status: res.status, body: null };
+  const text = await res.text();
+  try {
+    return { status: res.status, body: text ? JSON.parse(text) : null };
+  } catch {
+    throw new Error(`GitHub returned ${res.status} for ${path} with a body that is not JSON: ${text.slice(0, 200)}`);
+  }
+}
+
+/**
+ * GitHub answers a list endpoint with an object when something is wrong —
+ * {"message": "Not Found"} rather than []. Destructuring that gives
+ * "is not iterable", so the shape is checked before it is used.
+ */
+function expectList(body: any, what: string): any[] {
+  if (Array.isArray(body)) return body;
+  const said = body && typeof body === "object" && body.message ? ` It said: "${body.message}".` : "";
+  throw new Error(`GitHub did not return a list of ${what}.${said} This is usually GH_DISPATCH_TOKEN lacking access to the repository.`);
+}
+
 /**
  * Start a task: create the branch, then hand the person a set of ways in.
  * The branch name carries the issue number, which is what the commit hook
@@ -29,23 +110,20 @@ export async function startTask(opts: {
   const { repo, issue, title, login } = opts;
   const branch = `task/${issue}/${slug(title)}`;
 
-  const headers = {
-    Authorization: `Bearer ${process.env.GH_DISPATCH_TOKEN}`,
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-    "Content-Type": "application/json",
-  };
-
-  const main = await fetch(`https://api.github.com/repos/${repo}/git/ref/heads/main`, { headers }).then((r) => r.json());
-
-  const res = await fetch(`https://api.github.com/repos/${repo}/git/refs`, {
-    method: "POST", headers,
-    body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: main.object.sha }),
-  });
-  // 422 means the branch already exists, which is fine — resuming a task.
-  if (!res.ok && res.status !== 422) {
-    throw new Error(`Could not create the branch: ${res.status} ${await res.text()}`);
+  const { body: ref } = await ghFetch(`/repos/${repo}/git/ref/heads/main`);
+  const sha = ref?.object?.sha;
+  if (typeof sha !== "string") {
+    throw new Error(
+      `Could not read the current head of main in ${repo}. GitHub answered without an object.sha, which usually means the default branch is not called main.`
+    );
   }
+
+  // 422 means the branch already exists, which is fine — resuming a task.
+  await ghFetch(`/repos/${repo}/git/refs`, {
+    method: "POST",
+    body: JSON.stringify({ ref: `refs/heads/${branch}`, sha }),
+    allow: [422],
+  });
 
   await sql`update app_user set last_seen_at = now() where gh_login = ${login}`;
 
@@ -74,13 +152,8 @@ export async function startTask(opts: {
 export async function openPR(opts: {
   repo: string; branch: string; issue: number; title: string; login: string;
 }) {
-  const r = await fetch(`https://api.github.com/repos/${opts.repo}/pulls`, {
+  const { body } = await ghFetch(`/repos/${opts.repo}/pulls`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.GH_DISPATCH_TOKEN}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({
       title: `${opts.title} (#${opts.issue})`,
       head: opts.branch,
@@ -88,8 +161,7 @@ export async function openPR(opts: {
       body: `Closes #${opts.issue}\n\nOpened from the platform by @${opts.login}.\n\n## What\n\n## Why\n\n## Evidence\n\n## Risk\nWhat could this break? What did you not test?`,
     }),
   });
-  if (!r.ok) throw new Error(`Could not open the PR: ${r.status} ${await r.text()}`);
-  return r.json();
+  return body;
 }
 
 /**
@@ -99,23 +171,20 @@ export async function openPR(opts: {
  * anyone opening five tabs.
  */
 export async function branchState(repo: string, branch: string) {
-  const headers = {
-    Authorization: `Bearer ${process.env.GH_DISPATCH_TOKEN}`,
-    Accept: "application/vnd.github+json",
-  };
-  const [pr] = await fetch(
-    `https://api.github.com/repos/${repo}/pulls?head=${repo.split("/")[0]}:${branch}&state=all`,
-    { headers }
-  ).then((r) => r.json());
+  const owner = repo.split("/")[0];
+  const { body: prBody } = await ghFetch(`/repos/${repo}/pulls?head=${owner}:${branch}&state=all`);
+  const [pr] = expectList(prBody, "pull requests");
 
   if (!pr) return { state: "no-pr" as const };
 
-  const [checks, reviews] = await Promise.all([
-    fetch(`https://api.github.com/repos/${repo}/commits/${pr.head.sha}/check-runs`, { headers }).then((r) => r.json()),
-    fetch(`https://api.github.com/repos/${repo}/pulls/${pr.number}/reviews`, { headers }).then((r) => r.json()),
+  const [checksRes, reviewsRes] = await Promise.all([
+    ghFetch(`/repos/${repo}/commits/${pr.head.sha}/check-runs`),
+    ghFetch(`/repos/${repo}/pulls/${pr.number}/reviews`),
   ]);
 
-  const runs = checks.check_runs || [];
+  const runs: any[] = Array.isArray(checksRes.body?.check_runs) ? checksRes.body.check_runs : [];
+  const reviews = expectList(reviewsRes.body, "reviews");
+
   return {
     state: pr.merged_at ? ("merged" as const) : ("open" as const),
     number: pr.number,
@@ -133,18 +202,19 @@ export async function branchState(repo: string, branch: string) {
  * a refusal here is branch protection doing its job, not a bug.
  */
 export async function merge(repo: string, prNumber: number) {
-  const r = await fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}/merge`, {
+  // 405 and 409 are how GitHub says "not mergeable" and "the head moved".
+  // Allowed through so the refusal can be explained as protection working,
+  // rather than surfacing as a bare API failure.
+  const { status, body } = await ghFetch(`/repos/${repo}/pulls/${prNumber}/merge`, {
     method: "PUT",
-    headers: {
-      Authorization: `Bearer ${process.env.GH_DISPATCH_TOKEN}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ merge_method: "squash" }),
+    allow: [405, 409],
   });
-  if (!r.ok) {
-    const detail = await r.text();
-    throw new Error(`Merge refused (${r.status}). Usually this means a required review or check is missing. ${detail}`);
+
+  if (status === 405 || status === 409) {
+    throw new Error(
+      `Merge refused (${status}). Usually this means a required review or check is missing, which is branch protection doing its job. ${body?.message ?? ""}`.trim()
+    );
   }
-  return r.json();
+  return body;
 }

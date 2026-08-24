@@ -88,6 +88,9 @@ for (const p of people) {
 // --------------------------------------------------------------------------
 // 1. Nudges — to the person, plainly, once
 // --------------------------------------------------------------------------
+let nudged = 0;
+let unsent = 0;
+
 for (const p of quiet) {
   // The same expression as the nudge_once_per_day index, deliberately. If this
   // said current_date it would read the server's zone (UTC) while the index
@@ -101,7 +104,7 @@ for (const p of quiet) {
   `;
   if (already.length) continue;
 
-  await sendMail({
+  const sent = await sendMail({
     to: p.email,
     subject: "Nothing recorded against your name today",
     body: `Hi ${p.name?.split(" ")[0] || ""},
@@ -119,10 +122,23 @@ If you were away, book it under Leave on the platform and these stop.
 — automated, from the platform`,
   });
 
-  await sql`
-    insert into notification_log (user_id, kind, sent_to, subject)
-    values (${p.id}, 'nudge', ${p.email}, 'Nothing recorded against your name today')
-  `;
+  // Only record what actually went out. notification_log is what the
+  // nudge_once_per_day index reads, so a row written for a mail that was never
+  // sent suppresses tomorrow's real nudge — the person is silently dropped from
+  // the one mechanism meant to reach them, and the log says they were told.
+  if (sent.ok) {
+    nudged++;
+    await sql`
+      insert into notification_log (user_id, kind, sent_to, subject)
+      values (${p.id}, 'nudge', ${p.email}, 'Nothing recorded against your name today')
+    `;
+  } else {
+    unsent++;
+    console.warn(
+      `[nudge] not sent to ${p.email}: ${sent.skipped ? "RESEND_API_KEY is not set" : "the mail provider rejected it"}. ` +
+      `Nothing was written to notification_log, so tomorrow's nudge is not suppressed.`
+    );
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -158,11 +174,21 @@ lines.push(process.env.PLATFORM_URL || "");
 const digest = lines.join("\n");
 
 for (const to of (process.env.DIGEST_TO || "").split(",").map((s) => s.trim()).filter(Boolean)) {
-  await sendMail({ to, subject: `iHelp daily — ${moving.length} moved, ${quiet.length} quiet`, body: digest });
-  await sql`insert into notification_log (kind, sent_to, subject) values ('digest', ${to}, ${'iHelp daily ' + today})`;
+  const sent = await sendMail({ to, subject: `iHelp daily — ${moving.length} moved, ${quiet.length} quiet`, body: digest });
+  if (sent.ok) {
+    await sql`insert into notification_log (kind, sent_to, subject) values ('digest', ${to}, ${'iHelp daily ' + today})`;
+  } else {
+    unsent++;
+    console.warn(
+      `[digest] not sent to ${to}: ${sent.skipped ? "RESEND_API_KEY is not set" : "the mail provider rejected it"}. Nothing was written to notification_log.`
+    );
+  }
 }
 
 console.log(digest);
 
-  return { moved: moving.length, quiet: quiet.length, onLeave: onLeave.length };
+  // nudged and unsent are counts of mail that actually left, and mail that did
+  // not. Without them a run that sent nothing reports the same numbers as a run
+  // that reached everybody.
+  return { moved: moving.length, quiet: quiet.length, onLeave: onLeave.length, nudged, unsent };
 }
