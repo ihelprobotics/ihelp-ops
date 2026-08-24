@@ -161,7 +161,20 @@ jobs:
           set -e
           if [ "$CODE" -ne 0 ]; then
             echo "::error::Claude Code exited $CODE."
-            tail -40 claude-stderr.txt || true
+            # Both streams, because stderr came back empty on a real failure —
+            # the process exited in about two seconds and said nothing there.
+            # Claude Code reports most of its own errors on stdout, which is
+            # redirected to result.json, so printing only stderr threw away the
+            # part that explains why.
+            for f in claude-stderr.txt result.json; do
+              echo "----- $f -----"
+              if [ -s "$f" ]; then
+                head -c 4000 "$f"
+                echo
+              else
+                echo "(empty or absent)"
+              fi
+            done
           fi
           exit "$CODE"
 
@@ -328,17 +341,25 @@ jobs:
              + (if $out_tok == "" then {} else {output_tokens: ($out_tok | tonumber)} end)' \
             > callback.json
 
+          # 000 means curl itself never got an answer. Kept non-fatal for the
+          # same reason as the status check below.
           CODE=$(curl -sS -o callback-response.txt -w '%{http_code}' \
             -X POST "$PLATFORM_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -H "x-ops-secret: ${PLATFORM_WEBHOOK_SECRET:-}" \
-            --data @callback.json)
+            --data @callback.json) || CODE=000
 
           echo "platform responded $CODE"
           cat callback-response.txt || true
+
+          # Reported, not fatal. By this point the agent has already done
+          # whatever it was going to do — opened a pull request, or found the
+          # issue too vague. Failing the run because the ledger could not be
+          # updated would report the agent as having failed when it did not,
+          # which is the one thing this platform exists to get right. The
+          # annotation names the run so it can be closed by hand.
           if [ "$CODE" != "200" ]; then
-            echo "::error::The platform rejected the callback ($CODE). agent_run ${RUN_ID} is now stuck as 'running'."
-            exit 1
+            echo "::error::The platform did not accept the callback (HTTP $CODE). agent_run ${RUN_ID} will stay 'running' until it is updated by hand, and it counts against the requester's two-run limit until then. The agent's own work is unaffected — see the steps above."
           fi
 
       - name: Keep the result
