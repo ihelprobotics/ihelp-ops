@@ -1,6 +1,6 @@
 # Data model
 
-Three SQL files in `db/`, applied in this order. They are the schema of record —
+Four SQL files in `db/`, applied in this order. They are the schema of record —
 do not create tables in application code.
 
 | File | Contents |
@@ -8,6 +8,21 @@ do not create tables in application code.
 | `schema.sql` | `app_user`, `agent_run`, `gh_event`, `commit_event`; views `cycle_time`, `review_latency` |
 | `schema-people.sql` | Identity columns, `leave_request`, `leave_balance`, `notification_log`, `local_session`; views `leave_taken`, `on_leave_today` |
 | `schema-people-growth.sql` | `goal`, `goal_evidence`, `one_on_one`, `feedback_note`, `note_access_log`; row-level security; view `goal_progress` |
+| `schema-constraints.sql` | Normalises `gh_login`, then constrains it to a real GitHub username |
+
+`schema-constraints.sql` runs last because it repairs data before it restricts
+it. `gh_login` had been set to a full GitHub profile URL, and nothing rejected
+it: the header rendered `@https://github.com/name` and looked merely untidy,
+while every system that matches on a username had quietly stopped matching — PR
+mentions addressed nobody, commit attribution found no user, and CODEOWNERS
+never fired, so the approval rule the merge path depends on silently did not
+apply. A wrong `gh_login` is worse than a missing one. A missing one is refused
+at the door; a wrong one is accepted everywhere and works nowhere.
+
+The file normalises URL, `@handle` and whitespace forms first, sets anything
+still unusable to null rather than guessing, and only then adds the constraint —
+in that order, because a constraint added over bad data fails with a message
+about the constraint instead of about the data.
 
 ## Core
 

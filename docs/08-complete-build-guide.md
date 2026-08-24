@@ -203,10 +203,11 @@ ihelp-ops/
 ├── db/
 │   ├── schema.sql
 │   ├── schema-people.sql
-│   └── schema-people-growth.sql
+│   ├── schema-people-growth.sql
+│   └── schema-constraints.sql
 ├── ops/daily-email.mjs
 └── docs/
-    ├── 00-brief.md … 07-operating-model.md
+    ├── 00-brief.md … 09-acceptance.md
 ```
 
 ## 2.2 Install
@@ -265,8 +266,10 @@ at a time:
 1. `db/schema.sql`
 2. `db/schema-people.sql`
 3. `db/schema-people-growth.sql`
+4. `db/schema-constraints.sql`
 
-Order matters — later files alter tables the earlier ones create.
+Order matters — later files alter tables the earlier ones create, and the last
+one repairs data before it constrains it.
 
 ## 3.2 Verify
 

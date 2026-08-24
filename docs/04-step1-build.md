@@ -29,7 +29,8 @@ Fill `.env.local` from `.env.example`. `AUTH_SECRET` is `openssl rand -base64 32
 ## Phase 1 — Schema and auth
 
 - Apply `db/schema.sql`, then `schema-people.sql`, then
-  `schema-people-growth.sql` in the Supabase SQL editor.
+  `schema-people-growth.sql`, then `schema-constraints.sql` in the Supabase SQL
+  editor.
 - `npm install && npm run dev`.
 - Sign in with Google. Confirm a row appears in `app_user`.
 - Link yourself: set `gh_login`, `role='cto'`, `agent_tier='full'` for your row.

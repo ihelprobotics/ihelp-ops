@@ -42,16 +42,29 @@ export default function Dashboard() {
 
   async function load() {
     setLoading(true);
+    setErr("");
     try {
       const s = await fetch("/api/auth/session").then((r) => r.json());
       setMe(s?.user ?? null);
-      const t = await fetch("/api/tasks").then((r) => r.json());
+
+      const res = await fetch("/api/tasks");
+      // The middleware sends an unauthenticated request to /login, so a session
+      // that expired while this tab was open answers with an HTML page, not
+      // JSON. Calling .json() on it throws "Unexpected token '<'" — an error
+      // about a parser, describing nothing the reader can do anything about.
+      if (res.redirected || !res.headers.get("content-type")?.includes("json")) {
+        setErr("Your session has expired. Reload the page to sign in again.");
+        return;
+      }
+
+      const t = await res.json();
       if (t.error) setErr(t.error);
       else { setTasks(t.tasks); setRepo(t.repo); setEvents(t.events_recorded ?? null); }
     } catch (e: any) {
       setErr(e.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function run(agent: string) {
@@ -75,8 +88,12 @@ export default function Dashboard() {
     setRuns((r) => ({ ...r, [key]: { status: "running", id: data.run_id, message: data.message } }));
   }
 
-  const rank = TIER_RANK[me?.tier as keyof typeof TIER_RANK] ?? 1;
-  const isLead = me?.role === "cto" || me?.role === "founder";
+  // No session is not "the lowest tier". Falling back to week1 would offer a
+  // signed-out visitor three working Run buttons, and the refusal would come
+  // from the API after the click instead of from the tile before it.
+  const signedIn = !!me;
+  const rank = signedIn ? TIER_RANK[me.tier as keyof typeof TIER_RANK] ?? 1 : 0;
+  const isLead = signedIn && (me.role === "cto" || me.role === "founder");
 
   return (
     <main className="wrap">
@@ -120,8 +137,16 @@ export default function Dashboard() {
       <section>
         <h2>Your tasks</h2>
         {loading && <p className="muted">Loading from GitHub…</p>}
-        {!loading && tasks.length === 0 && (
-          <p className="muted">No open issues in {repo}. Open one on GitHub and it appears here.</p>
+        {/* Only after a load that actually succeeded. When err is set the list
+            is empty because the read failed, not because the repo is quiet —
+            saying "no open issues" there sends people to GitHub to look for
+            work that is sitting right in front of them. The error is the
+            answer, and it is rendered above. */}
+        {!loading && !err && tasks.length === 0 && (
+          <p className="muted">
+            {repo ? `No open issues in ${repo}.` : "No open issues."}{" "}
+            Open one on GitHub and it appears here.
+          </p>
         )}
         <div className="tasks">
           {tasks.map((t) => (
@@ -153,7 +178,13 @@ export default function Dashboard() {
         <h2>Agents {picked != null && <span className="on-task">→ working on #{picked}</span>}</h2>
         <div className="grid">
           {AGENTS.map((a) => {
-            const allowed = isLead || TIER_RANK[a.tier as keyof typeof TIER_RANK] <= rank;
+            // A linked GitHub login is required, not merely encouraged. Work
+            // dispatched by an account with no git identity cannot be
+            // attributed to anyone — the API refuses it, and the tile must
+            // refuse it too rather than inviting a click that will fail.
+            const allowed =
+              signedIn && !!me.login &&
+              (isLead || TIER_RANK[a.tier as keyof typeof TIER_RANK] <= rank);
             const key = `${a.id}-${picked}`;
             const r = runs[key];
             return (
@@ -165,7 +196,13 @@ export default function Dashboard() {
                     {r?.status === "running" ? "Running…" : "Run"}
                   </button>
                 ) : (
-                  <span className="lock">Unlocks at {a.tier}</span>
+                  <span className="lock">
+                    {!signedIn
+                      ? "Sign in to run agents"
+                      : !me.login
+                      ? "Link GitHub to run"
+                      : `Unlocks at ${a.tier}`}
+                  </span>
                 )}
               </div>
             );

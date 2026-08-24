@@ -1,11 +1,19 @@
+// Node-runtime auth. Routes and pages import from here; middleware never does.
+//
+// Everything in this file that matters touches the database, which is exactly
+// why it cannot be what middleware loads. The edge-safe half lives in
+// auth.config.ts and is spread in below.
+
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
+import { authConfig } from "@/auth.config";
 import { sql } from "@/lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [Google],
+  ...authConfig,
   session: { strategy: "jwt" },
   callbacks: {
+    ...authConfig.callbacks,
+
     // Everyone signs in with Google. But attribution lives in git — a commit is
     // signed by a GitHub login, CODEOWNERS is a list of GitHub logins. So the
     // session carries both, and the GitHub one may be null until it is linked.
@@ -18,6 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       `;
       return true;
     },
+
     async jwt({ token }) {
       if (!token.email) return token;
       const [u] = await sql`
@@ -28,6 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
       return token;
     },
+
     async session({ session, token }) {
       Object.assign(session.user, {
         id: token.uid, login: token.login, role: token.role,

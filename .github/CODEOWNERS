@@ -1,0 +1,38 @@
+# Who must approve what.
+#
+# This is the approval system. There is not a second one in the platform — the
+# merge button in the UI calls the GitHub API and can be refused, and that
+# refusal is branch protection working, not a bug.
+#
+# CODEOWNERS matches on GitHub *usernames*, never URLs or email addresses. The
+# same is true of app_user.gh_login, which is why db/schema-constraints.sql
+# rejects anything with a slash or a colon in it.
+
+# Everything, unless a more specific rule below wins.
+*                       @ammusharaff
+
+# The screens and the API. Most agent-authored work lands here.
+/app/                   @ammusharaff
+
+# The schema of record. Row-level security lives here; changing it changes who
+# can read data about a person.
+/db/                    @ammusharaff
+
+# Background jobs — the daily digest and its libraries.
+/ops/                   @ammusharaff
+
+# The documents. CLAUDE.md is loaded into every session, so a wrong fact here is
+# read first and believed.
+/docs/                  @ammusharaff
+/CLAUDE.md              @ammusharaff
+
+# Auth, middleware and the database client. A mistake in any of these widens who
+# can read what.
+/auth.ts                @ammusharaff
+/auth.config.ts         @ammusharaff
+/middleware.ts          @ammusharaff
+/lib/                   @ammusharaff
+
+# The agent definitions and the workflows that run them.
+/.claude/               @ammusharaff
+/.github/               @ammusharaff

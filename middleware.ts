@@ -1,4 +1,11 @@
-export { auth as middleware } from "@/auth";
+// Middleware runs on the edge runtime, so it builds its own NextAuth instance
+// from the edge-safe config alone. It must not import "@/auth" — that module
+// reaches lib/db.ts and postgres.js, and a TCP socket cannot exist here.
+
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
+
+export const { auth: middleware } = NextAuth(authConfig);
 
 // Anything listed here is NOT behind the session check.
 //   api/webhooks     — signed by GitHub, verified in the route
