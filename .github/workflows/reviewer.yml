@@ -1,0 +1,211 @@
+# The Reviewer.
+#
+# It blocks, or it comments. It never approves. An agent approving
+# agent-written code is a closed loop, so approval stays with a named human in
+# CODEOWNERS - see docs/07-operating-model.md.
+#
+# Authored from the rules in this repository's CLAUDE.md. Not restored from a
+# bundle, and deliberately not a language model: these checks must give the same
+# answer twice. A check that sometimes blocks is worse than no check, because
+# people learn to re-run it until it passes.
+#
+# Blocking findings fail the job, which is what branch protection reads.
+# Non-blocking notes appear in the same comment and fail nothing.
+#
+# Every line inside a `run:` block is indented. A line at column zero ends the
+# YAML block scalar, and the file then parses as something else or not at all.
+
+name: Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Review the diff
+        id: review
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+
+          git diff --name-only "$BASE" "$HEAD" > changed.txt
+
+          # Added lines only, each carrying its file and line number, so a
+          # finding can point somewhere instead of just asserting.
+          git diff -U0 "$BASE" "$HEAD" | awk '
+            /^\+\+\+ b\// { file = substr($0, 7); next }
+            /^@@/ { split($0, a, " "); split(a[3], b, ","); line = substr(b[1], 2) - 1; next }
+            /^\+/ && !/^\+\+\+/ { line++; printf "%s:%d:%s\n", file, line, substr($0, 2) }
+          ' > added.txt || true
+
+          : > blocking.md
+          : > notes.md
+
+          title()  { printf -- '- **%s**\n\n' "$1" >> blocking.md; }
+          evidence() { sed 's/^/      /' >> blocking.md; printf '\n' >> blocking.md; }
+          because() { printf '  %s\n' "$1" >> blocking.md; }
+          endblock() { printf '\n' >> blocking.md; }
+          note() { printf -- '- %s\n' "$1" >> notes.md; }
+
+          # --------------------------------------------------------------
+          # Blocking 1 - a silent fallback, or an empty array where an error
+          # belongs.
+          # --------------------------------------------------------------
+          if grep -nE '(\|\||\?\?)[[:space:]]*\[\][[:space:]]*[;,)]?[[:space:]]*$|catch[[:space:]]*(\([^)]*\))?[[:space:]]*\{[[:space:]]*\}|catch[[:space:]]*(\([^)]*\))?[[:space:]]*\{[[:space:]]*return[[:space:]]*\[\]' added.txt > hits.txt; then
+            title "A silent fallback, or an empty array where an error belongs"
+            evidence < hits.txt
+            because "A missing key, a missing table or a failed fetch is an error naming the"
+            because "missing thing. An empty array here cannot be told apart from \"no results\","
+            because "which sends whoever reads it hunting in the wrong place."
+            endblock
+          fi
+
+          # --------------------------------------------------------------
+          # Blocking 2 - an error message that does not say what failed.
+          # --------------------------------------------------------------
+          if grep -niE 'error:[[:space:]]*"(something went wrong|an error occurred|internal (server )?error|failed|error|unknown error)"' added.txt > hits.txt; then
+            title "An error message that does not name what failed"
+            evidence < hits.txt
+            because "Every API route returns a message saying what failed and what to check."
+            because "\`{ error: \"Something went wrong\" }\` is not acceptable in this codebase."
+            endblock
+          fi
+
+          # --------------------------------------------------------------
+          # Blocking 3 - a person-scoped query that bypasses withUser.
+          # --------------------------------------------------------------
+          : > offenders.txt
+          while IFS= read -r f; do
+            case "$f" in
+              app/*|lib/*|ops/*) ;;
+              *) continue ;;
+            esac
+            case "$f" in
+              *.ts|*.tsx|*.mjs) ;;
+              *) continue ;;
+            esac
+            [ -f "$f" ] || continue
+            if grep -qE '(from|into|update)[[:space:]]+(goal|goal_evidence|one_on_one|feedback_note)\b' "$f"; then
+              if ! grep -q 'withUser' "$f"; then
+                printf '%s\n' "$f" >> offenders.txt
+              fi
+            fi
+          done < changed.txt
+          if [ -s offenders.txt ]; then
+            title "A query on a person-scoped table that does not go through withUser"
+            evidence < offenders.txt
+            because "goal, goal_evidence, one_on_one and feedback_note are under row-level"
+            because "security. The context and the query must be in one transaction, which is"
+            because "what withUser is for. Set separately, the context is lost and the read"
+            because "silently returns nothing at all. See docs/02-data-model.md."
+            endblock
+          fi
+
+          # --------------------------------------------------------------
+          # Blocking 4 - code changed with no test.
+          # --------------------------------------------------------------
+          if grep -qE '^(app|lib|ops)/.*\.(ts|tsx|mjs)$' changed.txt; then
+            if ! grep -qiE '(test|check|spec)' changed.txt; then
+              COUNT=$(grep -cE '^(app|lib|ops)/.*\.(ts|tsx|mjs)$' changed.txt)
+              title "Code changed with no test"
+              printf '      %s file(s) under app/, lib/ or ops/ changed, and nothing matching a\n' "$COUNT" >> blocking.md
+              printf '      test, check or spec did.\n\n' >> blocking.md
+              because "If the change is genuinely untestable here, say why in the pull request"
+              because "body and a human can waive this."
+              endblock
+            fi
+          fi
+
+          # --------------------------------------------------------------
+          # Blocking 5 - a new dependency with no justification.
+          # --------------------------------------------------------------
+          if git diff -U0 "$BASE" "$HEAD" -- package.json | grep -E '^\+[[:space:]]*"[^"]+":[[:space:]]*"[^"]*[0-9]' > deps.txt; then
+            if ! printf '%s' "$PR_BODY" | grep -qiE 'depend|package|librar'; then
+              title "A new dependency with no justification in the pull request body"
+              evidence < deps.txt
+              because "No new dependency without saying why in the PR. Prefer the platform"
+              because "primitives already here."
+              endblock
+            fi
+          fi
+
+          # --------------------------------------------------------------
+          # Notes - worth saying, not worth blocking.
+          # --------------------------------------------------------------
+          if grep -qE '^(app|lib|db|ops)/' changed.txt; then
+            if ! grep -qE '^(docs/|README\.md|CLAUDE\.md)' changed.txt; then
+              note "Code changed and no document did. If this makes something in docs/ wrong, the document is part of the change."
+            fi
+          fi
+
+          case ",$LABELS," in
+            *,agent-authored,*) ;;
+            *,human-authored,*) ;;
+            *) note "No \`agent-authored\` or \`human-authored\` label. We want to know what share of this codebase no human wrote." ;;
+          esac
+
+          CHURN=$(git diff --numstat "$BASE" "$HEAD" | awk '{ a += $1 + $2 } END { print a + 0 }')
+          if [ "$CHURN" -gt 1200 ]; then
+            note "$CHURN changed lines. Past about 1200 a review stops being a review. Consider splitting it."
+          fi
+
+          if [ -s blocking.md ]; then
+            echo "blocking=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "blocking=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -s notes.md ]; then
+            echo "notes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "notes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BLOCKING: ${{ steps.review.outputs.blocking }}
+          NOTES: ${{ steps.review.outputs.notes }}
+        run: |
+          set -euo pipefail
+          {
+            printf '## Reviewer\n\n'
+            if [ "$BLOCKING" = "true" ]; then
+              printf "Blocking. These are rules from \`CLAUDE.md\`, not preferences.\n\n"
+              cat blocking.md
+            else
+              printf 'Nothing blocking.\n\n'
+            fi
+            if [ "$NOTES" = "true" ]; then
+              printf '### Notes\n\n'
+              cat notes.md
+              printf '\n'
+            fi
+            printf -- '---\n\n'
+            printf 'The Reviewer never approves. A named human in CODEOWNERS does that.\n'
+          } > review.md
+          gh pr comment "$PR" --body-file review.md
+
+      - name: Block if anything blocking was found
+        if: steps.review.outputs.blocking == 'true'
+        run: |
+          echo "::error::The Reviewer found blocking issues. They are listed in the pull request comment."
+          exit 1

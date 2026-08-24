@@ -1,0 +1,355 @@
+# Dispatched by POST /api/agents/run in the platform.
+#
+# The platform executes no agents itself. It records a row in agent_run and
+# dispatches this workflow, which runs Claude Code headless on a throwaway VM.
+# Sandboxing, secrets and repository permissions stay inside GitHub, where they
+# are already solved.
+#
+# Authored from the specification in docs/01-architecture.md and
+# docs/08-complete-build-guide.md section 3a. Not restored from a bundle.
+#
+# Three details are load-bearing and must not be tidied:
+#
+#   * The branch is agent/<agent>/issue-<n>. Both taskFromBranch in
+#     app/api/webhooks/github/route.ts and .githooks/prepare-commit-msg parse
+#     that exact shape. Change it and progress silently stops moving.
+#   * The pull request body contains "Platform run: `<uuid>`". The GitHub
+#     webhook extracts the run id from that line to close the loop on merge.
+#   * The commit message carries the iHelp-Task trailer. The commit hook is not
+#     installed on a runner, so this workflow writes the trailer itself.
+#     Without it commit_event.issue_number is null and the task never reaches 40%.
+#
+# No heredocs inside the run blocks. A heredoc terminator has to sit at column
+# zero, which ends the YAML block scalar it lives in — the file parses as
+# something else entirely, or not at all.
+
+name: Agent run
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Subagent to invoke (scribe, qa, frontend, fullstack, ...)"
+        required: true
+      issue:
+        description: "Issue number to work on"
+        required: true
+      requester:
+        description: "GitHub login of the person who asked. They own the result."
+        required: true
+      run_id:
+        description: "agent_run.id in the platform. Reported back on completion."
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Inputs arrive from the platform and end up in a branch name and a shell.
+      # They are checked before either, rather than trusted. The [a-z-] rule is
+      # not arbitrary: it is what the webhook branch regex accepts.
+      - name: Check the inputs
+        env:
+          AGENT: ${{ inputs.agent }}
+          ISSUE: ${{ inputs.issue }}
+          REQUESTER: ${{ inputs.requester }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$AGENT" | grep -qE '^[a-z-]+$'; then
+            echo "::error::agent must be lowercase letters and hyphens only, got '$AGENT'. The webhook reads the task number out of agent/<agent>/issue-<n>; anything else makes the branch unparseable and progress stops with no error."
+            exit 1
+          fi
+          if ! printf '%s' "$ISSUE" | grep -qE '^[0-9]+$'; then
+            echo "::error::issue must be a number, got '$ISSUE'."
+            exit 1
+          fi
+          if ! printf '%s' "$REQUESTER" | grep -qE '^[A-Za-z0-9-]{1,39}$'; then
+            echo "::error::requester must be a GitHub username, not a URL, got '$REQUESTER'."
+            exit 1
+          fi
+          if ! printf '%s' "$RUN_ID" | grep -qE '^[0-9a-fA-F-]{36}$'; then
+            echo "::error::run_id must be the agent_run UUID, got '$RUN_ID'. Without it the platform cannot match this run to its row."
+            exit 1
+          fi
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Read the issue
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          set -euo pipefail
+          gh issue view "$ISSUE" --json title,body > issue.json
+          jq -r '.title' issue.json > issue-title.txt
+          jq -r '.body // ""' issue.json > issue-body.txt
+          {
+            echo "title<<ISSUE_TITLE_EOF"
+            cat issue-title.txt
+            echo "ISSUE_TITLE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create the branch
+        id: branch
+        env:
+          AGENT: ${{ inputs.agent }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          set -euo pipefail
+          BRANCH="agent/${AGENT}/issue-${ISSUE}"
+          git config user.name "iHelp ${AGENT} agent"
+          git config user.email "agents@ihelprobotics.com"
+          git switch -c "$BRANCH"
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Run the agent
+        id: agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AGENT: ${{ inputs.agent }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          set -euo pipefail
+          {
+            printf 'Use the %s subagent to work on issue #%s in this repository.\n\n' "$AGENT" "$ISSUE"
+            printf 'Title: '
+            cat issue-title.txt
+            printf '\n\nBody:\n'
+            cat issue-body.txt
+            printf '\n\n'
+            printf 'Follow CLAUDE.md in this repository. It is not advisory. It is the\n'
+            printf 'standard this work will be reviewed against, and the Reviewer blocks on it.\n\n'
+            printf 'Stay in scope. Build what this issue asks for and nothing else. If you\n'
+            printf 'notice something else worth fixing, write it in the pull request\n'
+            printf 'description; do not fix it in the same change.\n\n'
+            printf 'STOP and write down what you need, rather than guessing, if any of the\n'
+            printf 'following is true:\n\n'
+            printf '  * The issue is ambiguous, or you would have to guess what a screen does.\n'
+            printf '  * The work would touch auth, session handling, row-level security, or\n'
+            printf '    any query against goal, goal_evidence, one_on_one or feedback_note.\n'
+            printf '  * The change would widen who can read data about a person.\n'
+            printf '  * Two requirements in docs/ genuinely conflict.\n\n'
+            printf 'In those cases make no code changes at all. Write the question you need\n'
+            printf 'answered into AGENT-NOTES.md at the repository root, and stop. Stopping\n'
+            printf 'with a clear question is a correct outcome here, not a failure. A guess\n'
+            printf 'that looks finished is worse than no change, because it gets merged.\n'
+          } > prompt.txt
+
+          set +e
+          claude -p "$(cat prompt.txt)" \
+            --allowedTools "Read,Edit,Write,Bash,Grep,Glob" \
+            --output-format json > result.json 2> claude-stderr.txt
+          CODE=$?
+          set -e
+          if [ "$CODE" -ne 0 ]; then
+            echo "::error::Claude Code exited $CODE."
+            tail -40 claude-stderr.txt || true
+          fi
+          exit "$CODE"
+
+      # --output-format json returns a single result object in current versions
+      # and an array of messages in older ones. Both are read. If neither carries
+      # a cost the value is reported as absent rather than as zero: a zero cost
+      # is a claim, an absent one is the truth.
+      - name: Read cost and usage
+        id: usage
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ ! -s result.json ]; then
+            echo "No result.json - the agent step did not get far enough to produce one."
+            exit 0
+          fi
+          # shellcheck disable=SC2016  # the jq program is deliberately unexpanded
+          NORM='if type=="array" then (.[-1] // {}) else . end'
+          COST=$(jq -r "$NORM | .total_cost_usd // empty" result.json 2>/dev/null || true)
+          IN_TOK=$(jq -r "$NORM | .usage.input_tokens // empty" result.json 2>/dev/null || true)
+          OUT_TOK=$(jq -r "$NORM | .usage.output_tokens // empty" result.json 2>/dev/null || true)
+          {
+            echo "cost=$COST"
+            echo "input=$IN_TOK"
+            echo "output=$OUT_TOK"
+          } >> "$GITHUB_OUTPUT"
+          echo "cost_usd=${COST:-absent} input=${IN_TOK:-absent} output=${OUT_TOK:-absent}"
+
+      - name: Did anything change?
+        id: diff
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git status --short
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A run that changed nothing is a finding, not a failure. It almost always
+      # means the issue was too vague to act on, and the useful place to say so
+      # is the issue itself, where whoever wrote it will see it.
+      - name: No change - report it on the issue
+        if: steps.diff.outputs.changed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENT: ${{ inputs.agent }}
+          ISSUE: ${{ inputs.issue }}
+          REQUESTER: ${{ inputs.requester }}
+          LOGS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          {
+            printf 'The **%s** agent ran against this issue and changed nothing.\n\n' "$AGENT"
+            printf 'That usually means the issue does not yet say what a finished version\n'
+            printf 'looks like, rather than that the agent failed. Rewriting it with a\n'
+            printf 'concrete outcome is the fix, and it is the useful lesson.\n\n'
+            if [ -f AGENT-NOTES.md ]; then
+              printf 'The agent stopped deliberately and left this:\n\n'
+              printf '```\n'
+              cat AGENT-NOTES.md
+              printf '\n```\n\n'
+            fi
+            printf 'Requested by @%s - [run log](%s)\n' "$REQUESTER" "$LOGS"
+          } > no-change.md
+          gh issue comment "$ISSUE" --body-file no-change.md
+
+      - name: Commit, push, open the pull request
+        id: pr
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENT: ${{ inputs.agent }}
+          ISSUE: ${{ inputs.issue }}
+          REQUESTER: ${{ inputs.requester }}
+          RUN_ID: ${{ inputs.run_id }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          TITLE: ${{ steps.issue.outputs.title }}
+          COST: ${{ steps.usage.outputs.cost }}
+        run: |
+          set -euo pipefail
+          git add -A
+          # Separate -m flags become separate paragraphs. The last one is the
+          # trailer commit_event.issue_number is parsed from.
+          git commit -q \
+            -m "${AGENT}: ${TITLE}" \
+            -m "Opened by the ${AGENT} agent for @${REQUESTER}." \
+            -m "iHelp-Task: #${ISSUE}"
+          git push -u origin "$BRANCH"
+
+          gh label create agent-authored --color 5319e7 \
+            --description "Written by an agent. A human still owns it." 2>/dev/null || true
+
+          {
+            printf 'Closes #%s\n\n' "$ISSUE"
+            printf 'Written by the **%s** agent, dispatched from the platform.\n\n' "$AGENT"
+            printf '**Owner: @%s.** You asked for this run, so you own what it produced.\n' "$REQUESTER"
+            printf 'Read it, run it, and be ready to explain any line of it. The Reviewer\n'
+            printf 'comments but never approves; a human in CODEOWNERS merges.\n\n'
+            if [ -f AGENT-NOTES.md ]; then
+              printf "The agent left notes in \`AGENT-NOTES.md\`. Read them before merging.\n\n"
+            fi
+            printf '## What\n\n## Why\n\n## Evidence\n\n## Risk\n\n'
+            printf 'What could this break? What was not tested?\n\n'
+            printf -- '---\n\n'
+            printf "Platform run: \`%s\`\n" "$RUN_ID"
+            if [ -n "${COST:-}" ]; then
+              printf '\nCost: $%s\n' "$COST"
+            fi
+          } > pr-body.md
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "${AGENT}: ${TITLE} (#${ISSUE})" \
+            --body-file pr-body.md \
+            --label agent-authored
+
+          echo "url=$(gh pr view "$BRANCH" --json url -q .url)" >> "$GITHUB_OUTPUT"
+
+      # Always. A run the platform never hears about stays "running" for ever,
+      # and the two-concurrent-run limit then locks the requester out of asking
+      # for anything else.
+      - name: Report back to the platform
+        if: always()
+        env:
+          PLATFORM_WEBHOOK: ${{ secrets.PLATFORM_WEBHOOK }}
+          PLATFORM_WEBHOOK_SECRET: ${{ secrets.PLATFORM_WEBHOOK_SECRET }}
+          RUN_ID: ${{ inputs.run_id }}
+          AGENT_OUTCOME: ${{ steps.agent.outcome }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          LOGS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COST: ${{ steps.usage.outputs.cost }}
+          IN_TOKENS: ${{ steps.usage.outputs.input }}
+          OUT_TOKENS: ${{ steps.usage.outputs.output }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PLATFORM_WEBHOOK:-}" ]; then
+            echo "::warning::PLATFORM_WEBHOOK is not set, so this run cannot be reported. agent_run ${RUN_ID} will stay 'running' in the platform until it is. See docs/05-step2-golive.md section 5."
+            exit 0
+          fi
+
+          # Field names match app/api/webhooks/agent/route.ts exactly. Sending
+          # "success" with no pr_url is what that route turns into no_changes,
+          # which is why a no-diff run still reports success here.
+          STATUS=failure
+          if [ "$AGENT_OUTCOME" = "success" ]; then
+            STATUS=success
+          fi
+
+          # shellcheck disable=SC2016  # the jq program must reach jq unexpanded
+          jq -n \
+            --arg run_id "$RUN_ID" \
+            --arg status "$STATUS" \
+            --arg pr_url "${PR_URL:-}" \
+            --arg logs "$LOGS" \
+            --arg cost "${COST:-}" \
+            --arg in_tok "${IN_TOKENS:-}" \
+            --arg out_tok "${OUT_TOKENS:-}" \
+            '{run_id: $run_id, status: $status, logs_url: $logs}
+             + (if $pr_url == "" then {} else {pr_url: $pr_url} end)
+             + (if $cost == "" then {} else {cost_usd: ($cost | tonumber)} end)
+             + (if $in_tok == "" then {} else {input_tokens: ($in_tok | tonumber)} end)
+             + (if $out_tok == "" then {} else {output_tokens: ($out_tok | tonumber)} end)' \
+            > callback.json
+
+          CODE=$(curl -sS -o callback-response.txt -w '%{http_code}' \
+            -X POST "$PLATFORM_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -H "x-ops-secret: ${PLATFORM_WEBHOOK_SECRET:-}" \
+            --data @callback.json)
+
+          echo "platform responded $CODE"
+          cat callback-response.txt || true
+          if [ "$CODE" != "200" ]; then
+            echo "::error::The platform rejected the callback ($CODE). agent_run ${RUN_ID} is now stuck as 'running'."
+            exit 1
+          fi
+
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-run-${{ inputs.run_id }}
+          path: |
+            result.json
+            prompt.txt
+            claude-stderr.txt
+            callback.json
+          if-no-files-found: warn
+          retention-days: 14
