@@ -18,6 +18,15 @@
 #   * The commit message carries the iHelp-Task trailer. The commit hook is not
 #     installed on a runner, so this workflow writes the trailer itself.
 #     Without it commit_event.issue_number is null and the task never reaches 40%.
+#   * Every file this workflow writes for itself lives in $RUNNER_TEMP, never in
+#     the checkout. The commit is `git add -A`, so a scratch file in the working
+#     tree gets committed: the first green run put issue.json, prompt.txt and
+#     the full result.json transcript into its own pull request. Worse, it makes
+#     `git status --porcelain` non-empty on every run, so the "changed nothing"
+#     path below can never fire and a too-vague issue quietly produces a pull
+#     request instead of the comment that would explain why. AGENT-NOTES.md is
+#     the deliberate exception — the agent writes that one, and it is meant to
+#     be read on the PR.
 #
 # No heredocs inside the run blocks. A heredoc terminator has to sit at column
 # zero, which ends the YAML block scalar it lives in — the file parses as
@@ -107,12 +116,12 @@ jobs:
           ISSUE: ${{ inputs.issue }}
         run: |
           set -euo pipefail
-          gh issue view "$ISSUE" --json title,body > issue.json
-          jq -r '.title' issue.json > issue-title.txt
-          jq -r '.body // ""' issue.json > issue-body.txt
+          gh issue view "$ISSUE" --json title,body > "$RUNNER_TEMP/issue.json"
+          jq -r '.title' "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-title.txt"
+          jq -r '.body // ""' "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-body.txt"
           {
             echo "title<<ISSUE_TITLE_EOF"
-            cat issue-title.txt
+            cat "$RUNNER_TEMP/issue-title.txt"
             echo "ISSUE_TITLE_EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -140,9 +149,9 @@ jobs:
           {
             printf 'Use the %s subagent to work on issue #%s in this repository.\n\n' "$AGENT" "$ISSUE"
             printf 'Title: '
-            cat issue-title.txt
+            cat "$RUNNER_TEMP/issue-title.txt"
             printf '\n\nBody:\n'
-            cat issue-body.txt
+            cat "$RUNNER_TEMP/issue-body.txt"
             printf '\n\n'
             printf 'Follow CLAUDE.md in this repository. It is not advisory. It is the\n'
             printf 'standard this work will be reviewed against, and the Reviewer blocks on it.\n\n'
@@ -160,12 +169,12 @@ jobs:
             printf 'answered into AGENT-NOTES.md at the repository root, and stop. Stopping\n'
             printf 'with a clear question is a correct outcome here, not a failure. A guess\n'
             printf 'that looks finished is worse than no change, because it gets merged.\n'
-          } > prompt.txt
+          } > "$RUNNER_TEMP/prompt.txt"
 
           set +e
-          claude -p "$(cat prompt.txt)" \
+          claude -p "$(cat "$RUNNER_TEMP/prompt.txt")" \
             --allowedTools "Read,Edit,Write,Bash,Grep,Glob" \
-            --output-format json > result.json 2> claude-stderr.txt
+            --output-format json > "$RUNNER_TEMP/result.json" 2> "$RUNNER_TEMP/claude-stderr.txt"
           CODE=$?
           set -e
           if [ "$CODE" -ne 0 ]; then
@@ -175,7 +184,7 @@ jobs:
             # Claude Code reports most of its own errors on stdout, which is
             # redirected to result.json, so printing only stderr threw away the
             # part that explains why.
-            for f in claude-stderr.txt result.json; do
+            for f in "$RUNNER_TEMP/claude-stderr.txt" "$RUNNER_TEMP/result.json"; do
               echo "----- $f -----"
               if [ -s "$f" ]; then
                 head -c 4000 "$f"
@@ -196,15 +205,15 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          if [ ! -s result.json ]; then
-            echo "No result.json - the agent step did not get far enough to produce one."
+          if [ ! -s "$RUNNER_TEMP/result.json" ]; then
+            echo "No result.json in $RUNNER_TEMP - the agent step did not get far enough to produce one."
             exit 0
           fi
           # shellcheck disable=SC2016  # the jq program is deliberately unexpanded
           NORM='if type=="array" then (.[-1] // {}) else . end'
-          COST=$(jq -r "$NORM | .total_cost_usd // empty" result.json 2>/dev/null || true)
-          IN_TOK=$(jq -r "$NORM | .usage.input_tokens // empty" result.json 2>/dev/null || true)
-          OUT_TOK=$(jq -r "$NORM | .usage.output_tokens // empty" result.json 2>/dev/null || true)
+          COST=$(jq -r "$NORM | .total_cost_usd // empty" "$RUNNER_TEMP/result.json" 2>/dev/null || true)
+          IN_TOK=$(jq -r "$NORM | .usage.input_tokens // empty" "$RUNNER_TEMP/result.json" 2>/dev/null || true)
+          OUT_TOK=$(jq -r "$NORM | .usage.output_tokens // empty" "$RUNNER_TEMP/result.json" 2>/dev/null || true)
           {
             echo "cost=$COST"
             echo "input=$IN_TOK"
@@ -248,8 +257,8 @@ jobs:
               printf '\n```\n\n'
             fi
             printf 'Requested by @%s - [run log](%s)\n' "$REQUESTER" "$LOGS"
-          } > no-change.md
-          gh issue comment "$ISSUE" --body-file no-change.md
+          } > "$RUNNER_TEMP/no-change.md"
+          gh issue comment "$ISSUE" --body-file "$RUNNER_TEMP/no-change.md"
 
       - name: Commit, push, open the pull request
         id: pr
@@ -293,13 +302,13 @@ jobs:
             if [ -n "${COST:-}" ]; then
               printf '\nCost: $%s\n' "$COST"
             fi
-          } > pr-body.md
+          } > "$RUNNER_TEMP/pr-body.md"
 
           gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "${AGENT}: ${TITLE} (#${ISSUE})" \
-            --body-file pr-body.md \
+            --body-file "$RUNNER_TEMP/pr-body.md" \
             --label agent-authored
 
           echo "url=$(gh pr view "$BRANCH" --json url -q .url)" >> "$GITHUB_OUTPUT"
@@ -348,18 +357,18 @@ jobs:
              + (if $cost == "" then {} else {cost_usd: ($cost | tonumber)} end)
              + (if $in_tok == "" then {} else {input_tokens: ($in_tok | tonumber)} end)
              + (if $out_tok == "" then {} else {output_tokens: ($out_tok | tonumber)} end)' \
-            > callback.json
+            > "$RUNNER_TEMP/callback.json"
 
           # 000 means curl itself never got an answer. Kept non-fatal for the
           # same reason as the status check below.
-          CODE=$(curl -sS -o callback-response.txt -w '%{http_code}' \
+          CODE=$(curl -sS -o "$RUNNER_TEMP/callback-response.txt" -w '%{http_code}' \
             -X POST "$PLATFORM_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -H "x-ops-secret: ${PLATFORM_WEBHOOK_SECRET:-}" \
-            --data @callback.json) || CODE=000
+            --data @"$RUNNER_TEMP/callback.json") || CODE=000
 
           echo "platform responded $CODE"
-          cat callback-response.txt || true
+          cat "$RUNNER_TEMP/callback-response.txt" || true
 
           # Reported, not fatal. By this point the agent has already done
           # whatever it was going to do — opened a pull request, or found the
@@ -377,10 +386,10 @@ jobs:
         with:
           name: agent-run-${{ inputs.run_id }}
           path: |
-            result.json
-            prompt.txt
-            claude-stderr.txt
-            callback.json
+            ${{ runner.temp }}/result.json
+            ${{ runner.temp }}/prompt.txt
+            ${{ runner.temp }}/claude-stderr.txt
+            ${{ runner.temp }}/callback.json
           if-no-files-found: warn
           retention-days: 14
 
