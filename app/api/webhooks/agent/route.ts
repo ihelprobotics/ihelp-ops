@@ -34,6 +34,22 @@ export async function POST(req: Request) {
   const { run_id, status, pr_url, logs_url, cost_usd, input_tokens, output_tokens } = await req.json();
   if (!run_id) return NextResponse.json({ error: "run_id is required." }, { status: 400 });
 
+  // agent_run.id is a uuid column. Anything else reaches Postgres as
+  // "invalid input syntax for type uuid" — a 500 that reads like the platform
+  // broke, when in fact the caller simply named a run that cannot exist. The
+  // workflow can legitimately be triggered by hand with run_id=manual-1, per
+  // docs/08 section 3c, so this is a normal path and not an error condition:
+  // answer it the same way as a UUID with no row, and say which it was.
+  const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  if (!UUID.test(String(run_id))) {
+    return NextResponse.json(
+      {
+        error: `run_id "${run_id}" is not a UUID, so it matches no row in agent_run — nothing was updated. That is expected for a workflow run triggered by hand from the Actions tab; the agent's own work is unaffected. Runs dispatched by the platform send agent_run.id and do update their row.`,
+      },
+      { status: 404 }
+    );
+  }
+
   // A workflow that succeeded but produced no pull request is not a failure —
   // it usually means the issue was too vague for the agent to act on. That is a
   // finding worth surfacing distinctly rather than filing under "failed".

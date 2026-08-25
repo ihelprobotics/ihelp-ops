@@ -83,8 +83,17 @@ jobs:
             echo "::error::requester must be a GitHub username, not a URL, got '$REQUESTER'."
             exit 1
           fi
-          if ! printf '%s' "$RUN_ID" | grep -qE '^[0-9a-fA-F-]{36}$'; then
-            echo "::error::run_id must be the agent_run UUID, got '$RUN_ID'. Without it the platform cannot match this run to its row."
+          # Deliberately not a UUID check. docs/08 section 3c asks you to trigger
+          # this workflow by hand before trusting the platform button, and a
+          # hand-typed value can never be a UUID — a strict check here made the
+          # documented first run impossible. What run_id has to be is safe: it
+          # reaches a shell, a JSON body and an artifact name. The platform
+          # still sends agent_run.id, and only a real UUID updates a row; a
+          # manual value gets a 404 from the callback that says so by name,
+          # which since the callback is reported and not fatal is exactly the
+          # right outcome for a run with no row behind it.
+          if ! printf '%s' "$RUN_ID" | grep -qE '^[A-Za-z0-9._-]{1,64}$'; then
+            echo "::error::run_id must be 1-64 characters of letters, digits, dot, underscore or hyphen, got '$RUN_ID'. The platform sends agent_run.id here; a hand-triggered run can use any value, such as manual-1, and simply will not update a row."
             exit 1
           fi
 

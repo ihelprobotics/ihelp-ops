@@ -439,6 +439,14 @@ GitHub → **Actions** → **Agent run** → **Run workflow**:
 - requester: your GitHub username
 - run_id: `test-1`
 
+`run_id` is `agent_run.id` when the platform dispatches this workflow. There is
+no such row behind a hand-triggered run, and there is not meant to be — the
+point of this step is to watch the agent work before trusting the button. The
+final step reports back anyway, the callback answers `404 No run with id
+test-1`, and that appears as an annotation rather than a failed run. The agent's
+work is unaffected. A red X on the last step here would be wrong; an annotation
+naming the run is right.
+
 Open the running job and watch. You will see it check out the repo, install
 Claude Code, read the issue, edit files, commit, push a branch and open a PR.
 
@@ -450,6 +458,8 @@ Claude Code, read the issue, edit files, commit, push a branch and open a PR.
 | `ANTHROPIC_API_KEY` not found | Secret added to the wrong repo or misnamed |
 | Permission denied on push | Workflow permissions still read-only |
 | Runs, no changes | The issue was too vague. Rewrite it — that is the correct lesson |
+| `run_id must be 1-64 characters` | Spaces or other characters in `run_id`. It reaches a shell and an artifact name |
+| Last step annotates `404` | Expected for a manual run: no `agent_run` row to update |
 
 ### 3d — Now the platform button
 
