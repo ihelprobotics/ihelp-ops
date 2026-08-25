@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { BASE_CSS } from "@/app/ui/base-css";
 
 /* Agent grid. Tier decides who may dispatch what — the same rule the API
    enforces server-side. Locked tiles stay visible with the reason showing:
@@ -150,22 +152,28 @@ export default function Dashboard() {
         )}
         <div className="tasks">
           {tasks.map((t) => (
-            <button
-              key={t.number}
-              className={"task" + (picked === t.number ? " on" : "")}
-              onClick={() => setPicked(picked === t.number ? null : t.number)}
-            >
-              <div className="trow">
-                <span className="num">#{t.number}</span>
-                <span className="title">{t.title}</span>
-                <span className="pct">{t.progress}%</span>
-              </div>
-              <div className="bar"><i style={{ width: `${t.progress}%` }} /></div>
-              <div className="meta">
-                {t.assignee ? `@${t.assignee}` : "unassigned"}
-                {t.labels.length ? " · " + t.labels.join(", ") : ""}
-              </div>
-            </button>
+            /* Two separate targets, deliberately. Clicking the row picks the
+               task for an agent to work on; the link opens it. One control
+               doing both would mean you could not select a task without
+               leaving the page you were selecting it on. */
+            <div key={t.number} className={"task" + (picked === t.number ? " on" : "")}>
+              <button
+                className="tsel"
+                onClick={() => setPicked(picked === t.number ? null : t.number)}
+              >
+                <div className="trow">
+                  <span className="num">#{t.number}</span>
+                  <span className="title">{t.title}</span>
+                  <span className="pct">{t.progress}%</span>
+                </div>
+                <div className="bar"><i style={{ width: `${t.progress}%` }} /></div>
+                <div className="meta">
+                  {t.assignee ? `@${t.assignee}` : "unassigned"}
+                  {t.labels.length ? " · " + t.labels.join(", ") : ""}
+                </div>
+              </button>
+              <Link className="open" href={`/task/${t.number}`}>Open</Link>
+            </div>
           ))}
         </div>
         <p className="muted small">
@@ -234,34 +242,18 @@ export default function Dashboard() {
       )}
 
       <style jsx global>{`
-        * { box-sizing: border-box; }
-        body {
-          margin: 0; background: #0E1620; color: #DCE6ED;
-          font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-          font-size: 14px; line-height: 1.5;
-        }
-        .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
-        .top { display: flex; align-items: flex-start; gap: 16px; border-bottom: 1px solid #26343F; padding-bottom: 16px; }
-        h1 { font-size: 17px; margin: 0; font-weight: 600; }
-        h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: #78909F; margin: 30px 0 12px; font-weight: 500; }
-        .sub { color: #4E6472; margin: 2px 0 0; font-size: 12px; font-family: ui-monospace, monospace; }
-        .who { margin-left: auto; text-align: right; font-size: 12px; }
-        .who b { display: block; }
-        .who span { color: #78909F; font-family: ui-monospace, monospace; font-size: 11px; }
-        .warn { color: #F2A03D; font-style: normal; }
-        .notice { background: #1B2733; border-left: 3px solid #F2A03D; padding: 11px 13px; margin-top: 18px; border-radius: 2px; font-size: 13px; }
-        .notice code { font-family: ui-monospace, monospace; font-size: 12px; color: #DCE6ED; }
-        .error { background: #1B2733; border-left: 3px solid #E0555F; padding: 11px 13px; margin-top: 18px; border-radius: 2px; font-size: 13px; }
+        ${BASE_CSS}
         .tasks { display: flex; flex-direction: column; gap: 8px; }
-        .task { text-align: left; background: #151F2A; border: 1px solid #26343F; border-left: 3px solid #26343F; border-radius: 2px; padding: 11px 13px; cursor: pointer; color: inherit; font: inherit; }
+        .task { display: flex; align-items: center; gap: 12px; background: #151F2A; border: 1px solid #26343F; border-left: 3px solid #26343F; border-radius: 2px; padding: 11px 13px; }
         .task:hover { border-color: #4FD1C5; }
+        .tsel { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; font: inherit; }
+        .open { flex: none; font-size: 11px; font-family: ui-monospace, monospace; text-decoration: none; border: 1px solid #26343F; border-radius: 2px; padding: 5px 9px; }
+        .open:hover { border-color: #4FD1C5; }
         .task.on { border-left-color: #4FD1C5; background: #1B2733; }
         .trow { display: flex; gap: 10px; align-items: baseline; }
         .num { font-family: ui-monospace, monospace; color: #78909F; font-size: 12px; }
         .title { flex: 1; font-weight: 500; }
         .pct { font-family: ui-monospace, monospace; font-size: 12px; color: #4FD1C5; }
-        .bar { height: 3px; background: #26343F; border-radius: 2px; margin: 8px 0 6px; overflow: hidden; }
-        .bar i { display: block; height: 100%; background: #4FD1C5; }
         .meta { font-size: 11px; color: #4E6472; font-family: ui-monospace, monospace; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
         .agent { background: #151F2A; border: 1px solid #26343F; border-radius: 2px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -275,8 +267,6 @@ export default function Dashboard() {
         .run { background: #151F2A; border-left: 3px solid #4FD1C5; padding: 11px 13px; margin-bottom: 8px; border-radius: 2px; }
         .run b { font-family: ui-monospace, monospace; font-size: 12px; }
         .run p { margin: 5px 0 0; font-size: 13px; }
-        .muted { color: #4E6472; }
-        .small { font-size: 11px; }
       `}</style>
     </main>
   );

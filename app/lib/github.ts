@@ -49,8 +49,13 @@ function explain(status: number): string {
  * Fetch from the GitHub API. Checks the token once, checks the response, and
  * throws an error naming both. Returns the status alongside the parsed body so
  * a caller can treat an expected status as an answer.
+ *
+ * Exported so app/lib/task.ts reads GitHub through the same door. A second
+ * fetch wrapper would be a second set of error messages, and the point of this
+ * one is that every failure names the token or the repository rather than the
+ * property that happened to be undefined.
  */
-async function ghFetch(path: string, opts: GhOptions = {}): Promise<{ status: number; body: any }> {
+export async function ghFetch(path: string, opts: GhOptions = {}): Promise<{ status: number; body: any }> {
   const { allow = [], headers, ...init } = opts;
 
   const token = process.env.GH_DISPATCH_TOKEN;
@@ -93,7 +98,7 @@ async function ghFetch(path: string, opts: GhOptions = {}): Promise<{ status: nu
  * {"message": "Not Found"} rather than []. Destructuring that gives
  * "is not iterable", so the shape is checked before it is used.
  */
-function expectList(body: any, what: string): any[] {
+export function expectList(body: any, what: string): any[] {
   if (Array.isArray(body)) return body;
   const said = body && typeof body === "object" && body.message ? ` It said: "${body.message}".` : "";
   throw new Error(`GitHub did not return a list of ${what}.${said} This is usually GH_DISPATCH_TOKEN lacking access to the repository.`);
@@ -173,26 +178,46 @@ export async function openPR(opts: {
 export async function branchState(repo: string, branch: string) {
   const owner = repo.split("/")[0];
   const { body: prBody } = await ghFetch(`/repos/${repo}/pulls?head=${owner}:${branch}&state=all`);
-  const [pr] = expectList(prBody, "pull requests");
+  const [listed] = expectList(prBody, "pull requests");
 
-  if (!pr) return { state: "no-pr" as const };
+  if (!listed) return { state: "no-pr" as const, checksError: null as string | null };
 
-  const [checksRes, reviewsRes] = await Promise.all([
-    ghFetch(`/repos/${repo}/commits/${pr.head.sha}/check-runs`),
-    ghFetch(`/repos/${repo}/pulls/${pr.number}/reviews`),
+  // The list endpoint does not carry mergeable_state — GitHub computes
+  // mergeability lazily and only returns it from the single-pull-request
+  // endpoint. Reading it off the list gives undefined every time, which the
+  // page would then render as "unknown" for a pull request GitHub is perfectly
+  // happy to merge.
+  const [prRes, checksRes, reviewsRes] = await Promise.all([
+    ghFetch(`/repos/${repo}/pulls/${listed.number}`),
+    // 403 is an answer here, not a failure. A fine-grained token without
+    // "Checks: read" can see the pull request and everything else on this page;
+    // only the check conclusions are closed to it. Throwing would take the
+    // whole task screen down over one field, so the field says it cannot be
+    // read and names the permission — which is the same rule as everywhere
+    // else, applied at the right size. What it must never do is report
+    // "none have run", which is a claim about CI that nobody verified.
+    ghFetch(`/repos/${repo}/commits/${listed.head.sha}/check-runs`, { allow: [403] }),
+    ghFetch(`/repos/${repo}/pulls/${listed.number}/reviews`),
   ]);
 
+  const pr = prRes.body ?? listed;
+  const readable = checksRes.status !== 403;
   const runs: any[] = Array.isArray(checksRes.body?.check_runs) ? checksRes.body.check_runs : [];
   const reviews = expectList(reviewsRes.body, "reviews");
 
+  const checksError = readable
+    ? null
+    : `GH_DISPATCH_TOKEN cannot read check runs on ${repo} (403). A fine-grained token needs the "Checks" read permission; a classic one needs repo. Until then this page cannot say whether CI passed, and does not guess.`;
+
   return {
     state: pr.merged_at ? ("merged" as const) : ("open" as const),
-    number: pr.number,
-    url: pr.html_url,
-    checks: runs.length === 0 ? "none" : runs.every((c: any) => c.conclusion === "success") ? "green" : "not green",
-    reviewerAgent: runs.find((c: any) => c.name === "Reviewer")?.conclusion ?? "pending",
+    number: pr.number as number,
+    url: pr.html_url as string,
+    checks: !readable ? "unreadable" : runs.length === 0 ? "none" : runs.every((c: any) => c.conclusion === "success") ? "green" : "not green",
+    reviewerAgent: !readable ? "unreadable" : runs.find((c: any) => c.name === "Reviewer")?.conclusion ?? "pending",
     humanApproved: reviews.some((r: any) => r.state === "APPROVED"),
-    mergeable: pr.mergeable_state,
+    mergeable: pr.mergeable_state ?? "unknown",
+    checksError,
   };
 }
 

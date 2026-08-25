@@ -13,11 +13,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
-
-const STAGE = {
-  opened: 10, branched: 20, committed: 40,
-  pr_open: 60, checks_green: 75, approved: 90, merged: 100,
-};
+import { stageOf, branchIsForTask } from "@/app/lib/progress";
 
 export async function GET() {
   const session = await auth();
@@ -72,26 +68,15 @@ export async function GET() {
     : [[], []];
 
   const committed = new Set(commits.map((c: any) => c.issue_number));
-  const hasBranch = (n: number) => branches.some((b) => b.startsWith(`task/${n}/`) || b.startsWith(`agent/`) && b.includes(`issue-${n}`));
 
-  function stageOf(n: number) {
-    const mine = events.filter((e: any) => e.number === n);
-    const kinds = mine.map((e: any) => e.kind);
-
-    if (kinds.includes("pr_merged")) return STAGE.merged;
-    if (kinds.includes("review_submitted")) return STAGE.approved;
-
-    if (kinds.includes("pr_opened")) {
-      // Checks green is recorded as a workflow_run conclusion against this repo.
-      // Only promote past 60 when a success is actually on record.
-      const green = kinds.includes("workflow_success");
-      return green ? STAGE.checks_green : STAGE.pr_open;
-    }
-
-    if (committed.has(n)) return STAGE.committed;
-    if (hasBranch(n)) return STAGE.branched;
-    return STAGE.opened;
-  }
+  // The ladder itself lives in app/lib/progress.ts, because /task/[number]
+  // climbs the same one. This function only gathers the evidence.
+  const progressOf = (n: number) =>
+    stageOf({
+      kinds: events.filter((e: any) => e.number === n).map((e: any) => e.kind),
+      hasCommit: committed.has(n),
+      hasBranch: branches.some((b) => branchIsForTask(b, n)),
+    });
 
   return NextResponse.json({
     repo,
@@ -105,7 +90,7 @@ export async function GET() {
       url: i.html_url,
       assignee: i.assignee?.login ?? null,
       labels: (i.labels || []).map((l: any) => l.name),
-      progress: stageOf(i.number),
+      progress: progressOf(i.number),
       updated_at: i.updated_at,
     })),
   });
