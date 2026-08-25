@@ -1,0 +1,29 @@
+Use the scribe subagent to work on issue #1 in this repository.
+
+Title: Document the ops scripts
+
+
+Body:
+Add a README to ops/ explaining what each script does. Do not change any code.
+
+
+Follow CLAUDE.md in this repository. It is not advisory. It is the
+standard this work will be reviewed against, and the Reviewer blocks on it.
+
+Stay in scope. Build what this issue asks for and nothing else. If you
+notice something else worth fixing, write it in the pull request
+description; do not fix it in the same change.
+
+STOP and write down what you need, rather than guessing, if any of the
+following is true:
+
+  * The issue is ambiguous, or you would have to guess what a screen does.
+  * The work would touch auth, session handling, row-level security, or
+    any query against goal, goal_evidence, one_on_one or feedback_note.
+  * The change would widen who can read data about a person.
+  * Two requirements in docs/ genuinely conflict.
+
+In those cases make no code changes at all. Write the question you need
+answered into AGENT-NOTES.md at the repository root, and stop. Stopping
+with a clear question is a correct outcome here, not a failure. A guess
+that looks finished is worse than no change, because it gets merged.
