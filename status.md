@@ -24,8 +24,8 @@ Nothing on this list is code. Every phase is built, tested and live.
 2. **Merge or close PR #2.** It now carries three commits and two scribe runs.
    A human in CODEOWNERS owns that call.
 
-3. **Decide on leave row-level security.** The last known correctness gap; see
-   *Known*.
+3. **Use it for a week.** The next thing to build is whatever the first intern
+   gets stuck on.
 
 ---
 
@@ -157,13 +157,12 @@ tomorrow's nudge is not silently suppressed.
 
 ## Known, deliberately not fixed
 
-- **Eight tables have RLS enabled and no policies**, readable only because the
-  app connects as a BYPASSRLS role: `app_user`, `agent_run`, `gh_event`,
-  `commit_event`, `leave_request`, `leave_balance`, `notification_log`,
-  `local_session`. Two of those — `leave_request` and `leave_balance` — are
-  person-scoped and today rest on application code alone, in
-  `app/lib/leave-data.ts`, which scopes every query by the id on the session.
-  That is one forgotten WHERE clause away from being wrong.
+- **Five tables still have RLS enabled and no policies**, readable only because
+  the app connects as a BYPASSRLS role: `agent_run`, `gh_event`,
+  `commit_event`, `notification_log`, `local_session`. None of them is scoped
+  to a person in the way leave and notes are — they are the artifact ledger and
+  the mail log, read by the platform rather than about anybody. Worth policies
+  eventually; not the same class of gap.
 - **A dedicated login role** would be better than `authenticated`. That needs a
   password and a change to `DATABASE_URL` in two places. `DB_APP_ROLE` is the seam.
 - **`git config user.email` is repo-locally the GitHub noreply address**, so the

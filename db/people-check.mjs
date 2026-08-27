@@ -158,6 +158,11 @@ try {
                     and status in ('pending','approved')
                     and starts_on <= ${TODAY}::date and ends_on >= ${TODAY}::date`).length, 0);
 
+      // An entitlement to read, so the balance policy has something to hide or
+      // show rather than an empty table that would pass either way.
+      await tx`insert into leave_balance (user_id, year, entitled, carried_over)
+               values (${member}, ${YEAR}, 12, 2.5)`;
+
       // 3 and 4. One nudge per person per Indian day, enforced by the index
       // rather than by the sender remembering.
       await tx`insert into notification_log (user_id, kind, sent_to, subject)
@@ -179,7 +184,88 @@ try {
       })(), "allowed");
 
       // =====================================================================
-      // C. What /me and /person/[id] read, under the policies.
+      // C. Leave, under the policies rather than under a WHERE clause.
+      // =====================================================================
+      console.log("\n— leave, under row-level security —");
+      await assumeAppRole(tx);
+      const as0 = async (id, role) => {
+        await tx`select set_config('app.user_id', ${id}, true)`;
+        await tx`select set_config('app.user_role', ${role}, true)`;
+      };
+      const refused = async (label, code, run) => {
+        let got = "it was allowed through";
+        try {
+          await tx`savepoint s`;
+          await run();
+        } catch (e) {
+          got = e.code;
+          await tx`rollback to savepoint s`;
+        }
+        is(label, got, code);
+      };
+
+      // The member sees their own two requests and nothing else.
+      await as0(member, "member");
+      is("the member reads their own leave",
+         (await tx`select id from leave_request where user_id = ${member}`).length, 2);
+      is("and no leave belonging to anybody else",
+         (await tx`select id from leave_request where user_id <> ${member}`).length, 0);
+      is("and their own entitlement",
+         (await tx`select entitled from leave_balance where user_id = ${member}`)[0]?.entitled, "12.0");
+
+      // The lead is this member's lead_email, so they see the requests.
+      await as0(leadId, "lead");
+      is("their lead reads them",
+         (await tx`select id from leave_request where user_id = ${member}`).length, 2);
+      is("and their balance", (await tx`select entitled from leave_balance where user_id = ${member}`).length, 1);
+
+      // A colleague on no-one's lead line sees nothing.
+      await as0(cto, "member");     // the CTO's id, deliberately without the role
+      is("a colleague with no claim on them reads none",
+         (await tx`select id from leave_request where user_id = ${member}`).length, 0);
+      is("nor their entitlement",
+         (await tx`select entitled from leave_balance where user_id = ${member}`).length, 0);
+
+      await as0(cto, "cto");
+      is("the CTO reads everything",
+         (await tx`select id from leave_request where user_id = ${member}`).length, 2);
+
+      await tx`select set_config('app.user_id', '', true)`;
+      await tx`select set_config('app.user_role', '', true)`;
+      is("unset context reads no leave at all",
+         (await tx`select id from leave_request`).length, 0);
+      is("and no balances", (await tx`select user_id from leave_balance`).length, 0);
+
+      // Writes.
+      await as0(member, "member");
+      await refused("you cannot book leave in somebody else's name", "42501", () =>
+        tx`insert into leave_request (user_id, kind, starts_on, ends_on)
+           values (${leadId}, 'planned', current_date + 200, current_date + 200)`);
+
+      const [own] = await tx`
+        insert into leave_request (user_id, kind, starts_on, ends_on)
+        values (${member}, 'planned', current_date + 300, current_date + 301)
+        returning id, status`;
+      is("you can book your own", own.status, "pending");
+
+      // This is the one the policy exists for: the status column is writable,
+      // so without a WITH CHECK anybody could approve themselves by setting it.
+      await refused("you cannot approve your own leave by writing the column", "42501", () =>
+        tx`update leave_request set status = 'approved' where id = ${own.id}`);
+      await tx`update leave_request set status = 'cancelled' where id = ${own.id}`;
+      is("but you can withdraw it",
+         (await tx`select status from leave_request where id = ${own.id}`)[0].status, "cancelled");
+
+      is("and a withdrawn request cannot be revived",
+         (await tx`update leave_request set status = 'pending' where id = ${own.id} returning id`).length, 0);
+
+      // Nothing may be deleted, by anyone, ever.
+      await as0(cto, "cto");
+      is("not even the CTO can delete a leave record",
+         (await tx`delete from leave_request where user_id = ${member} returning id`).length, 0);
+
+      // =====================================================================
+      // D. What /me and /person/[id] read, under the policies.
       // =====================================================================
       console.log("\n— the person page, under row-level security —");
 

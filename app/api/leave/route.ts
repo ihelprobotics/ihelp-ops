@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { sql } from "@/lib/db";
+import { withUser } from "@/lib/db";
 import { loadViewer } from "@/app/lib/people";
 import { clashingRequests } from "@/app/lib/leave-data";
 import { validateLeave, daysOf, countsAgainstBalance } from "@/app/lib/leave";
@@ -39,29 +39,39 @@ export async function POST(req: Request) {
   const { error: incoherent, value: leave } = validateLeave(body);
   if (incoherent) return NextResponse.json({ error: incoherent }, { status: 400 });
 
-  // Two rows covering the same day would put the same person in and out of
-  // on_leave_today depending on which one a query happened to read first, and
-  // the digest reads that view to decide who not to email.
-  const clash = await clashingRequests(me.id, leave.starts_on, leave.ends_on);
-  if (clash.length) {
-    const c = clash[0];
-    return NextResponse.json(
-      { error: `You already have ${c.status} ${c.kind} leave covering ${c.starts_on} to ${c.ends_on}, which overlaps these dates. Cancel that one first, or pick dates outside it.` },
-      { status: 409 }
-    );
-  }
-
   try {
-    const [created] = await sql<{ id: string; status: string }[]>`
-      insert into leave_request (user_id, kind, starts_on, ends_on, half_day, reason)
-      values (${me.id}, ${leave.kind}, ${leave.starts_on}::date, ${leave.ends_on}::date,
-              ${leave.half_day}, ${leave.reason})
-      returning id, status`;
+    // The overlap check and the insert are one transaction, run as this person,
+    // so the policies in db/schema-leave-rls.sql apply to both. Splitting them
+    // across two connections would leave a window in which the same dates could
+    // be booked twice — and would run the insert as a role that bypasses the
+    // policy saying you may only book your own leave.
+    const created = await withUser(me.id, me.role, async (tx) => {
+      // Two rows covering the same day would put the same person in and out of
+      // on_leave_today depending on which one a query happened to read first,
+      // and the digest reads that view to decide who not to email.
+      const clash = await clashingRequests(tx, me.id, leave.starts_on, leave.ends_on);
+      if (clash.length) return { clash: clash[0] };
+
+      const [row] = await tx<{ id: string; status: string }[]>`
+        insert into leave_request (user_id, kind, starts_on, ends_on, half_day, reason)
+        values (${me.id}, ${leave.kind}, ${leave.starts_on}::date, ${leave.ends_on}::date,
+                ${leave.half_day}, ${leave.reason})
+        returning id, status`;
+      return { row };
+    });
+
+    if (created.clash) {
+      const c = created.clash;
+      return NextResponse.json(
+        { error: `You already have ${c.status} ${c.kind} leave covering ${c.starts_on} to ${c.ends_on}, which overlaps these dates. Cancel that one first, or pick dates outside it.` },
+        { status: 409 }
+      );
+    }
 
     const days = daysOf(leave);
     return NextResponse.json({
-      id: created.id,
-      status: created.status,
+      id: created.row.id,
+      status: created.row.status,
       days,
       message:
         `${days} day${days === 1 ? "" : "s"} of ${leave.kind} leave requested, ${leave.starts_on} to ${leave.ends_on}. ` +

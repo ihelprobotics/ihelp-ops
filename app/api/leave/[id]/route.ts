@@ -11,7 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { sql } from "@/lib/db";
+import { withUser } from "@/lib/db";
 import { loadViewer } from "@/app/lib/people";
 import { canDecide } from "@/app/lib/leave";
 
@@ -52,14 +52,17 @@ export async function POST(req: Request, { params }: Ctx) {
     );
   }
 
-  const [request] = await sql<{ id: string; user_id: string; status: string; kind: string; starts_on: string; ends_on: string; requester_name: string | null; requester_lead_email: string | null }[]>`
+  // Read as this person. A request they may not see comes back as no row, and
+  // is answered with the same 404 as one that does not exist — which is the
+  // correct answer either way: it is not theirs to know about.
+  const [request] = await withUser(me.id, me.role, (tx) => tx<{ id: string; user_id: string; status: string; kind: string; starts_on: string; ends_on: string; requester_name: string | null; requester_lead_email: string | null }[]>`
     select l.id, l.user_id, l.status, l.kind, l.starts_on::text, l.ends_on::text,
            u.name as requester_name, u.lead_email as requester_lead_email
       from leave_request l join app_user u on u.id = l.user_id
-     where l.id = ${id}`;
+     where l.id = ${id}`);
 
   if (!request) {
-    return NextResponse.json({ error: "There is no leave request with that id. It may have been withdrawn." }, { status: 404 });
+    return NextResponse.json({ error: "There is no leave request with that id, or it is not yours to see. It may have been withdrawn." }, { status: 404 });
   }
   if (request.status !== "pending") {
     return NextResponse.json(
@@ -76,7 +79,13 @@ export async function POST(req: Request, { params }: Ctx) {
         { status: 403 }
       );
     }
-    await sql`update leave_request set status = 'cancelled', decided_by = ${me.id}, decided_at = now() where id = ${id}`;
+    // The policy allows this exact transition and no other: your own row, while
+    // pending, becoming cancelled. Writing `status = 'approved'` here would be
+    // refused by Postgres, not merely by the code above.
+    await withUser(me.id, me.role, (tx) => tx`
+      update leave_request
+         set status = 'cancelled', decided_by = ${me.id}, decided_at = now()
+       where id = ${id} and status = 'pending'`);
     return NextResponse.json({ status: "cancelled", message: `Withdrawn — ${request.starts_on} to ${request.ends_on} is free again.` });
   }
 
@@ -95,10 +104,10 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 
   const status = action === "approve" ? "approved" : "rejected";
-  await sql`
+  await withUser(me.id, me.role, (tx) => tx`
     update leave_request
        set status = ${status}, decided_by = ${me.id}, decided_at = now(), decision_note = ${note}
-     where id = ${id} and status = 'pending'`;
+     where id = ${id} and status = 'pending'`);
 
   return NextResponse.json({
     status,

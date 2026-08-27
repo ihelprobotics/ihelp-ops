@@ -6,13 +6,23 @@
 // flagged as stalled and emailed about it. It is not an HR module, and nothing
 // here is a step towards one.
 //
-// Every query is scoped by the id the session carries, never by an id in a URL
-// or a form field. That is the same fail-closed rule the row-level security in
-// db/schema-people-growth.sql applies to notes, applied here in the one place
-// leave data is read.
+// Every query runs inside withUser(), so the policies in db/schema-leave-rls.sql
+// decide what comes back. The WHERE clauses below are still scoped by the id on
+// the session — but they are now the second line of defence rather than the
+// only one. Forgetting one returns zero rows instead of everybody's leave.
+//
+// The one deliberate exception is `on_leave_today`, read at the bottom. It is a
+// view, and a view executes with its owner's row-level security rather than the
+// caller's, so it answers for the whole company. That is intended: who is away
+// today is already on /team for everyone, and the Escalator and the digest both
+// read exactly this view.
 
-import { sql } from "@/lib/db";
+import type postgres from "postgres";
+import { withUser } from "@/lib/db";
 import type { Person } from "@/app/lib/people";
+
+/** The transaction withUser() hands to its callback. */
+export type Tx = postgres.TransactionSql;
 
 export type LeaveRow = {
   id: string;
@@ -58,27 +68,29 @@ export async function loadLeave(viewer: Person, year = new Date().getFullYear())
   const decides = viewer.role === "cto" || viewer.role === "founder" || viewer.role === "lead";
   const decidesEverything = viewer.role === "cto" || viewer.role === "founder";
 
-  // A fragment, built here rather than at module scope. lib/db.ts opens the
-  // connection on first use and a fragment at the top of the file would open it
-  // at import — which next build does for every route, turning a missing
-  // DATABASE_URL into a failed build instead of the message that names it.
-  const row = sql`
-    l.id, l.kind, l.starts_on::text, l.ends_on::text, l.half_day, l.reason, l.status,
-    l.decision_note, l.decided_at, l.created_at,
-    d.name as decided_by_name
-  `;
+  const [entitlement, taken, history, awayToday, queue] = await withUser(viewer.id, viewer.role, (tx) => {
+    // The shared column list, built from the transaction so it is bound to the
+    // same connection as the queries that embed it. At module scope it would
+    // also open the pool at import, which next build does for every route —
+    // turning a missing DATABASE_URL into a failed build rather than the
+    // message that names it.
+    const row = tx`
+      l.id, l.kind, l.starts_on::text, l.ends_on::text, l.half_day, l.reason, l.status,
+      l.decision_note, l.decided_at, l.created_at,
+      d.name as decided_by_name
+    `;
 
-  const [entitlement, taken, history, awayToday, queue] = await Promise.all([
-    sql<{ entitled: string; carried_over: string }[]>`
+    return Promise.all([
+    tx<{ entitled: string; carried_over: string }[]>`
       select entitled, carried_over from leave_balance
        where user_id = ${viewer.id} and year = ${year}`,
 
     // The view is the authority on how days are counted, so the number on
     // screen and the number in an analytics query cannot disagree.
-    sql<{ days: string }[]>`
+    tx<{ days: string }[]>`
       select days from leave_taken where user_id = ${viewer.id} and year = ${year}`,
 
-    sql<LeaveRow[]>`
+    tx<LeaveRow[]>`
       select ${row}
         from leave_request l
         left join app_user d on d.id = l.decided_by
@@ -86,11 +98,11 @@ export async function loadLeave(viewer: Person, year = new Date().getFullYear())
        order by l.starts_on desc, l.created_at desc
        limit 100`,
 
-    sql<{ name: string | null; kind: string; ends_on: string }[]>`
+    tx<{ name: string | null; kind: string; ends_on: string }[]>`
       select name, kind, ends_on::text from on_leave_today order by name nulls last`,
 
     decides
-      ? sql<QueueRow[]>`
+      ? tx<QueueRow[]>`
           select ${row}, l.user_id,
                  u.name as requester_name, u.pod as requester_pod, u.lead_email as requester_lead_email
             from leave_request l
@@ -100,8 +112,9 @@ export async function loadLeave(viewer: Person, year = new Date().getFullYear())
              and l.user_id <> ${viewer.id}
              and (${decidesEverything}::boolean or lower(u.lead_email) = lower(${viewer.email ?? ""}))
            order by l.starts_on`
-      : Promise.resolve(null),
-  ]);
+        : Promise.resolve(null),
+    ]);
+  });
 
   // A missing entitlement row is a missing entitlement row. Defaulting to the
   // 12 in the schema would put a number on screen that nobody agreed to, and
@@ -133,9 +146,19 @@ export async function loadLeave(viewer: Person, year = new Date().getFullYear())
  * letting the digest decide which one it believes.
  *
  * Cancelled and rejected requests do not count — those dates are free again.
+ *
+ * Takes the transaction rather than opening its own, so that the check and the
+ * insert it guards happen as one person, in one transaction, under one set of
+ * policies. Two separate connections would leave a gap in which the same dates
+ * could be booked twice.
  */
-export async function clashingRequests(userId: string, starts_on: string, ends_on: string) {
-  return sql<{ id: string; kind: string; starts_on: string; ends_on: string; status: string }[]>`
+export async function clashingRequests(
+  tx: Tx,
+  userId: string,
+  starts_on: string,
+  ends_on: string
+) {
+  return tx<{ id: string; kind: string; starts_on: string; ends_on: string; status: string }[]>`
     select id, kind, starts_on::text, ends_on::text, status
       from leave_request
      where user_id = ${userId}
