@@ -242,26 +242,48 @@
     <p>Ask whoever runs the platform to attach your GitHub username to your account — it’s a one-line change.</p>
     <p>Git signs every commit with a GitHub username. Reviews, approvals and code ownership all use it. So an account with no GitHub username attached can’t <em>own</em> work, and the platform won’t let it start a task or run an agent. That’s deliberate.</p>
     <div class="note">
-      <p><strong>Without GitHub linked you can still</strong> read everything, book leave, comment on tasks, and see your own goals and feedback. Only starting work and running agents are closed to you.</p>
+      <p><strong>Without GitHub linked you can still</strong> read everything, book leave, comment on tasks, see your own goals and feedback — and, if you are a lead, assign work to other people. Only <em>doing</em> the work is closed to you: taking a task, starting one, and running an agent.</p>
     </div>
   </section>
 
   <section>
     <h2>The five screens</h2>
     <dl class="rows">
-      <div class="row"><dt>Board</dt><dd>Every open task, and how far each has really got</dd></div>
+      <div class="row"><dt>Board</dt><dd>Every open task across every repository, and how far each has really got</dd></div>
       <div class="row"><dt>Team</dt><dd>Who’s on which pod, what they have open, who’s away today</dd></div>
       <div class="row"><dt>Leave</dt><dd>Book time off, see your balance, approve your team’s requests</dd></div>
       <div class="row"><dt>Me</dt><dd>Your goals, your 1:1 notes, feedback about you, what you’ve shipped</dd></div>
       <div class="row"><dt>Analytics</dt><dd>How work is flowing across the whole team</dd></div>
     </dl>
+    <p>The board covers <strong>all</strong> our repositories, not just one. Where there is more than one, tasks are grouped under the repository they belong to — and a task&rsquo;s address carries it, like <code>/task/ihelprobotics/ihelp-ops/42</code>. Issue numbers restart in every repository, so &ldquo;#1&rdquo; on its own does not say which piece of work you mean.</p>
+  </section>
+
+  <section>
+    <h2>Getting a task</h2>
+    <p class="lede">Every task has <strong>exactly one owner, or nobody</strong>. Never two.</p>
+    <p>A task with two owners has none. &ldquo;Somebody was going to do it&rdquo; is the outcome this whole system exists to prevent, so the platform will not let two names sit on one piece of work.</p>
+    <p>There are two ways your name gets on one, and both are normal.</p>
+
+    <h3>You take it</h3>
+    <p>Find something on the board with <em>nobody has taken this</em> under it and press <strong>Take it</strong>. That is the whole thing — no permission, no waiting. If you can see the work, you can start it. The task&rsquo;s own page has the same control, under <strong>Owner</strong>.</p>
+    <p><strong>You cannot take a task somebody else holds.</strong> The button is not offered, and the platform names who has it. Go and ask them — they may be stuck, or finished, or glad to hand it over.</p>
+
+    <h3>Somebody gives it to you</h3>
+    <p>Leads, the CTO and the founder can assign anyone. On the task page they get <strong>Assign to&hellip;</strong>, or <strong>Reassign</strong> to move a task off whoever holds it now.</p>
+    <p>That last part earns its place: work can be moved off someone who is stuck, on long leave, or has left. Without it, a task would belong to whoever touched it first for ever.</p>
+    <div class="note">
+      <p><strong>You do not need a GitHub account to assign work.</strong> The platform assigns using its own credentials, so a delivery manager who has never written a line of code can hand work out all day. Only <em>doing</em> the work — branches, commits, pull requests — needs a linked account, because those get signed with a git identity.</p>
+    </div>
+
+    <h3>Giving one back</h3>
+    <p>If it is yours and you have not started, press <strong>Hand it back</strong>. It returns to the board with nobody&rsquo;s name on it, and no explanation is owed. An honest hand-back beats a task sitting under your name for three weeks.</p>
   </section>
 
   <section>
     <h2>How a task actually moves</h2>
     <p class="lede">Seven steps. Each is caused by a real thing — never by clicking a button that says “done”.</p>
     <div class="ladder">
-      <div class="rung"><span class="pc">10%</span><span class="cause">Somebody opened the issue</span></div>
+      <div class="rung"><span class="pc">10%</span><span class="cause">Somebody opened the issue — it may not have an owner yet</span></div>
       <div class="rung"><span class="pc">20%</span><span class="cause">A branch was created for it</span></div>
       <div class="rung"><span class="pc">40%</span><span class="cause">The first commit landed on that branch</span></div>
       <div class="rung"><span class="pc">60%</span><span class="cause">A pull request was opened</span></div>
@@ -277,8 +299,14 @@
     <ol class="steps">
       <li>
         <div>
-          <h3>Pick it up</h3>
-          <p>Open the task from the Board and press <strong>Start task</strong>. The platform creates a branch named after the issue — <code>task/42/fall-detection-threshold</code>. That number is how everything you do afterwards attaches itself to the task automatically.</p>
+          <h3>Make sure it&rsquo;s yours</h3>
+          <p>Take it from the board, or check that <strong>Owner</strong> on the task page says your name. Everything below assumes the task is yours — that is what makes the work attributable to you rather than to nobody.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3>Start it</h3>
+          <p>Press <strong>Start task</strong>. The platform creates a branch named after the issue — <code>task/42/fall-detection-threshold</code>. That number is how everything you do afterwards attaches itself to the task automatically.</p>
         </div>
       </li>
       <li>
@@ -394,6 +422,8 @@
       <div class="row"><dt>Merge was refused</dt><dd>Branch protection. A required review or check is missing. Working as intended</dd></div>
       <div class="row"><dt>My commits aren’t showing</dt><dd>The commit hook probably isn’t installed in that clone. Run the <code>core.hooksPath</code> command above and push again</dd></div>
       <div class="row"><dt>I can’t run any agents</dt><dd>Your GitHub account isn’t linked yet, or the agent is above your tier. The tile says which</dd></div>
+      <div class="row"><dt>There’s no Take it button</dt><dd>Either the task already has an owner — it says who — or your GitHub account isn’t linked yet</dd></div>
+      <div class="row"><dt>The same number twice</dt><dd>Different tasks in different repositories. Issue numbers restart in each one, which is why the repository is in every link</dd></div>
     </dl>
   </section>
 
@@ -401,13 +431,16 @@
     <h2>If you don’t write code</h2>
     <p class="lede">Most of the platform is yours.</p>
     <ul class="plain">
-      <li>Read every task and see exactly where the work stands</li>
+      <li>Read every task across every repository, and see exactly where each stands</li>
       <li>Comment on tasks — your comment goes to the real GitHub issue</li>
       <li>Book and track leave</li>
       <li>See your goals, your 1:1 notes, and feedback about you</li>
       <li>See the team, and who’s away</li>
     </ul>
-    <p>You can’t start a task or run an agent, because work has to be attributable to a git identity. That’s a limit on the tool, not a comment on you.</p>
+    <div class="note">
+      <p><strong>And if you are a lead, the CTO or the founder, you can assign work</strong> — hand a task to somebody, or move one off a person who is stuck or away. That needs no GitHub account at all, because the platform assigns using its own credentials.</p>
+    </div>
+    <p>What you can’t do is <em>start</em> a task or run an agent. Those write commits and pull requests, which get signed with a git identity, and an account without one cannot own them. That’s a limit on how git works, not a comment on you.</p>
   </section>
 
   <footer>

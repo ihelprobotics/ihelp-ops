@@ -41,8 +41,9 @@ attached cannot *own* work, so the platform will not let it start a task or run
 an agent. This is deliberate, not a bug.
 
 **Without GitHub linked you can still:** read everything, book leave, comment on
-tasks, and see your own goals and feedback. Only starting work and dispatching
-agents are closed to you.
+tasks, see your own goals and feedback — and, if you are a lead, assign work to
+other people. Only *doing* the work is closed to you: taking a task, starting
+one, and dispatching an agent.
 
 ---
 
@@ -50,11 +51,62 @@ agents are closed to you.
 
 | Screen | What it's for |
 |---|---|
-| **Board** | Every open task, and how far each has really got |
+| **Board** | Every open task across every repository, and how far each has really got |
 | **Team** | Who's on which pod, what they have open, who's away today |
 | **Leave** | Book time off, see your balance, approve your team's requests |
 | **Me** | Your goals, your 1:1 notes, feedback about you, what you've shipped |
 | **Analytics** | How work is flowing across the whole team |
+
+The board covers **all** our repositories, not just one. When there's more than
+one, tasks are grouped under the repository they belong to.
+
+That's also why a task's address has the repository in it —
+`/task/ihelprobotics/ihelp-ops/42`. Issue numbers restart in every repository, so
+"#1" on its own doesn't say which piece of work you mean.
+
+---
+
+## Getting a task
+
+Every task has **exactly one owner, or nobody**. Never two. A task with two
+owners has none — "somebody was going to do it" is the outcome this whole system
+exists to prevent.
+
+There are two ways your name gets on one, and both are normal.
+
+### You take it
+
+Find something on the board with **nobody has taken this** under it and press
+**Take it**. That's the whole thing — no permission, no waiting. If you can see
+the work, you can start it.
+
+You can also take it from the task's own page, under **Owner**.
+
+**You can't take a task somebody else already holds.** The button won't be there,
+and the platform will tell you who has it. Go and ask them — they might be stuck,
+or finished, or glad to hand it over. If they agree, they press **Hand it back**
+and you take it, or a lead moves it directly.
+
+### Somebody gives it to you
+
+Leads, the CTO and the founder can assign anyone. On the task page they get
+**Assign to…** and can pick a person, or **Reassign** to move it off whoever has
+it now.
+
+That last part matters: work can be moved off someone who's stuck, on long leave,
+or has left. Without it a task would belong to whoever touched it first, for ever.
+
+**You don't need a GitHub account to assign work.** The platform assigns using
+its own credentials, so a delivery manager who has never written a line of code
+can hand work out all day. Only *doing* the work — branches, commits, pull
+requests — needs a linked GitHub account, because those things get signed with a
+git identity.
+
+### Giving one back
+
+If it's yours and you haven't started, press **Hand it back**. It returns to the
+board with nobody's name on it. No explanation owed — better an honest hand-back
+than a task sitting under your name for three weeks.
 
 ---
 
@@ -65,7 +117,7 @@ that says "done".
 
 | Bar reads | What made it move |
 |---|---|
-| **10%** | Somebody opened the issue on GitHub |
+| **10%** | Somebody opened the issue on GitHub — it may not have an owner yet |
 | **20%** | A branch was created for it |
 | **40%** | The first commit landed on that branch |
 | **60%** | A pull request was opened |
@@ -81,14 +133,19 @@ failure of admin.
 
 ## Doing a piece of work
 
-### 1. Pick it up
+### 1. Make sure it's yours
 
-Open the task from the Board and press **Start task**. The platform creates a
-branch named after the issue — `task/42/fall-detection-threshold`. The number in
-the branch name is how everything you do afterwards attaches itself to the task
-automatically.
+Take it from the board, or check the **Owner** section on the task page says your
+name. Everything below assumes the task is yours — that's what makes the work
+attributable to you rather than to nobody.
 
-### 2. Open it in VS Code
+### 2. Start it
+
+Press **Start task**. The platform creates a branch named after the issue —
+`task/42/fall-detection-threshold`. The number in the branch name is how
+everything you do afterwards attaches itself to the task automatically.
+
+### 3. Open it in VS Code
 
 The task page gives you three ways in:
 
@@ -96,7 +153,7 @@ The task page gives you three ways in:
 - **Browser** — opens the editor in a browser tab, nothing to install
 - **Terminal** — the `git` command, if you already have the repo cloned
 
-### 3. Set up the commit hook — once per clone
+### 4. Set up the commit hook — once per clone
 
 ```bash
 git config core.hooksPath .githooks
@@ -109,12 +166,12 @@ without you doing anything else.
 If you skip it, your commits still land — they just don't attach to any task,
 and the board won't move.
 
-### 4. Work, commit, push
+### 5. Work, commit, push
 
 Normal git. Commit and push as often as you like. Within a minute of pushing,
 the task moves to 40% on its own.
 
-### 5. Open a pull request, get it reviewed, merge
+### 6. Open a pull request, get it reviewed, merge
 
 You can do all three from the task page. The **Merge** button calls GitHub — it
 does not override anything. If GitHub refuses because a review is missing, that
@@ -274,17 +331,29 @@ that clone. Run `git config core.hooksPath .githooks` and push again.
 **"I can't run any agents"** — your GitHub account isn't linked yet, or the
 agent is above your tier. The tile says which.
 
+**"There's no Take it button"** — either the task already has an owner (it says
+who), or your GitHub account isn't linked yet.
+
+**"The same number appears twice"** — they're different tasks in different
+repositories. Issue numbers restart in each one, which is why the repository name
+is in every link.
+
 ---
 
 ## If you don't write code
 
 You can do all of this:
 
-- Read every task and see exactly where the work stands
+- Read every task across every repository, and see exactly where each stands
 - Comment on tasks — your comment goes to the real GitHub issue
 - Book and track leave
 - See your goals, your 1:1 notes and feedback about you
 - See the team and who's away
 
-You cannot start a task or run an agent, because work has to be attributable to
-a git identity. That's a limit on the tool, not a comment on you.
+**And if you're a lead, the CTO or the founder, you can assign work** — hand a
+task to somebody, or move one off a person who's stuck or away. That needs no
+GitHub account at all, because the platform assigns using its own credentials.
+
+What you can't do is *start* a task or run an agent. Those write commits and
+pull requests, which get signed with a git identity, and an account without one
+can't own them. That's a limit on how git works, not a comment on you.
