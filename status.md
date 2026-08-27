@@ -7,8 +7,8 @@ Deployed at **https://ihelp-ops-ai-decodeds-projects.vercel.app**, in the
 `ai-decodeds-projects` Vercel org.
 
 **Step 1 of `docs/04` is complete.** Phases 0 through 7 are built, tested and
-live. What remains is not construction — it is three credentials, one GitHub App
-install, and using the thing for a week.
+live, and all eight acceptance tests in `docs/09` pass. What remains is one
+sign-in, one merge, one decision — and then using the thing for a week.
 
 ---
 
@@ -16,15 +16,32 @@ install, and using the thing for a week.
 
 Nothing on this list is code. Every phase is built, tested and live.
 
-1. **Install the Vercel GitHub App** on `ihelprobotics` and connect the project.
-   Until then every deploy needs the git remote temporarily detached (see
-   *Known* below), and every deploy is a slow upload rather than a 35-second
-   git build.
+1. **Sign in to production with Google once.** It is the only credential no
+   automated check can exercise — everything else was re-verified after the
+   rotation, but a Google client secret is only proved by a real sign-in. If it
+   was rotated, the new value has to be in Google Cloud Console too.
 
-2. **Rotate the secrets that sat in the client's Vercel account.** See *Blocking*.
-
-3. **Merge or close PR #2.** It now carries three commits and two scribe runs.
+2. **Merge or close PR #2.** It now carries three commits and two scribe runs.
    A human in CODEOWNERS owns that call.
+
+3. **Decide on leave row-level security.** The last known correctness gap; see
+   *Known*.
+
+---
+
+## Deployment, as of now
+
+The Vercel GitHub App is installed on `ihelprobotics` and the project is
+connected to the repository. **Deploy by pushing to `main`** — Vercel builds
+from git in about 45 seconds.
+
+`vercel deploy` from a laptop is still refused, and will stay refused: the CLI
+stamps the upload with the local git metadata, and Vercel blocks a deployment
+whose commit author is not a member of the Vercel team. The commits are authored
+by `ammusharaff`; the CLI is authenticated as `krishna-6771`. Either add that
+GitHub account to the Vercel team, or simply push — the git path is the better
+one anyway. To deploy without a new commit, POST to `/v13/deployments` with a
+`gitSource` of `{type: github, org: ihelprobotics, repo: ihelp-ops, ref: main}`.
 
 ---
 
@@ -133,21 +150,13 @@ tomorrow's nudge is not silently suppressed.
 
 | | |
 |---|---|
-| Secrets exposed in the client's Vercel account | `DATABASE_URL`, `GH_DISPATCH_TOKEN`, `AUTH_SECRET`, `AUTH_GOOGLE_SECRET`, `AGENT_CALLBACK_SECRET`, `GH_WEBHOOK_SECRET`, `CRON_SECRET`. Deleting that project does not un-expose them — rotate |
-| Vercel cannot see the repo | Deploys need the remote detached, and take twenty minutes instead of forty seconds |
-| `GH_DISPATCH_TOKEN` cannot read check runs | 403 on `/check-runs`. Being replaced with a classic token carrying `repo`. The task page names the missing permission rather than guessing about CI |
-| `GH_DISPATCH_TOKEN` expires 23 Sep 2026 | When it does, the board, task pages, agent dispatch and the digest all stop at once, with no warning first |
+| Google sign-in unverified since the rotation | The one credential no automated check can exercise. One real sign-in settles it |
 | The Reviewer needs manual approval to run | Its workflow sits at `action_required` on the agent's branch, so the 75% rung cannot be reached on that task |
 
 ---
 
 ## Known, deliberately not fixed
 
-- **Every deploy needs `git remote remove origin` first.** The CLI reads the
-  local remote and stamps the deployment as a GitHub one; Vercel then tries to
-  verify the commit author against a repository the project is not connected to,
-  cannot, and blocks the deployment before any build runs. Installing the GitHub
-  App removes this entirely.
 - **Eight tables have RLS enabled and no policies**, readable only because the
   app connects as a BYPASSRLS role: `app_user`, `agent_run`, `gh_event`,
   `commit_event`, `leave_request`, `leave_balance`, `notification_log`,
@@ -157,8 +166,8 @@ tomorrow's nudge is not silently suppressed.
   That is one forgotten WHERE clause away from being wrong.
 - **A dedicated login role** would be better than `authenticated`. That needs a
   password and a change to `DATABASE_URL` in two places. `DB_APP_ROLE` is the seam.
-- **`git config user.email` is repo-locally the GitHub noreply address.** Vercel
-  blocks deployments whose commit author it cannot match to a GitHub account.
+- **`git config user.email` is repo-locally the GitHub noreply address**, so the
+  commit author maps to a real GitHub account.
 - **`/api/agents/run` sends `Bearer undefined`** when `GH_DISPATCH_TOKEN` is
   unset. The 401 reaches the user; it just does not name the key.
 - **The Reviewer's no-test rule blocks most PRs today.** Waivable via the PR body.
