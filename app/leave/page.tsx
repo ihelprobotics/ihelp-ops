@@ -17,6 +17,7 @@ import { loadLeave } from "@/app/lib/leave-data";
 import { daysOf } from "@/app/lib/leave";
 import { PEOPLE_CSS } from "@/app/ui/people-css";
 import Nav from "@/app/ui/nav";
+import { isAdmin } from "@/app/lib/roles";
 import RequestForm from "./request-form";
 import Decide from "./decide";
 
@@ -29,6 +30,8 @@ const span = (r: { starts_on: string; ends_on: string; half_day: boolean }) =>
 
 export default async function LeavePage() {
   const session = await auth();
+  // The Admin link, shown only to those it is for. The page itself checks too.
+  const admin = isAdmin(session?.user?.role ?? "");
 
   let view: Awaited<ReturnType<typeof loadLeave>> | null = null;
   let me: Awaited<ReturnType<typeof loadViewer>> = null;
@@ -49,7 +52,7 @@ export default async function LeavePage() {
         <div>
           <h1>Leave</h1>
           <p className="sub">{me?.lead_email ? `decided by ${me.lead_email}` : "no lead set — the CTO decides"}</p>
-          <Nav current="leave" />
+          <Nav current="leave" admin={admin} />
         </div>
         {me && (
           <div className="who">

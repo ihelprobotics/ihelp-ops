@@ -10,11 +10,14 @@ import { auth } from "@/auth";
 import { loadTeam } from "@/app/lib/people";
 import { PEOPLE_CSS } from "@/app/ui/people-css";
 import Nav from "@/app/ui/nav";
+import { isAdmin } from "@/app/lib/roles";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage() {
   const session = await auth();
+  // The Admin link, shown only to those it is for. The page itself checks too.
+  const admin = isAdmin(session?.user?.role ?? "");
 
   let team: Awaited<ReturnType<typeof loadTeam>> | null = null;
   let error = "";
@@ -32,7 +35,7 @@ export default async function TeamPage() {
         <div>
           <h1>Team</h1>
           <p className="sub">{team?.repos.length ? team.repos.join(" · ") : "no repositories configured"}</p>
-          <Nav current="team" />
+          <Nav current="team" admin={admin} />
         </div>
         {session?.user && (
           <div className="who">

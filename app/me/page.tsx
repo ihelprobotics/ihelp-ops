@@ -11,12 +11,14 @@ import { auth } from "@/auth";
 import { loadPerson } from "@/app/lib/person";
 import { PEOPLE_CSS } from "@/app/ui/people-css";
 import Nav from "@/app/ui/nav";
+import { isAdmin } from "@/app/lib/roles";
 import Person from "@/app/person/view";
 
 export const dynamic = "force-dynamic";
 
 export default async function MePage() {
   const session = await auth();
+  const admin = isAdmin(session?.user?.role ?? "");
 
   let view: Awaited<ReturnType<typeof loadPerson>> = null;
   let error = "";
@@ -37,14 +39,14 @@ export default async function MePage() {
     }
   }
 
-  if (view) return <Person view={view} self />;
+  if (view) return <Person view={view} self admin={admin} />;
 
   return (
     <main className="wrap">
       <header className="top">
         <div>
           <h1>Me</h1>
-          <Nav current="me" />
+          <Nav current="me" admin={admin} />
         </div>
       </header>
       <div className="error">{error}</div>

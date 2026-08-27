@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BASE_CSS } from "@/app/ui/base-css";
 import Nav, { NAV_CSS } from "@/app/ui/nav";
+import { isAdmin } from "@/app/lib/roles";
 
 /* Agent grid. Tier decides who may dispatch what — the same rule the API
    enforces server-side. Locked tiles stay visible with the reason showing:
@@ -138,7 +139,7 @@ export default function Dashboard() {
               ? repos[0].repo
               : `${repos.length} repositories · ${tasks.length} open`}
           </p>
-          <Nav current="board" />
+          <Nav current="board" admin={isAdmin(me?.role ?? "")} />
         </div>
         {me && (
           <div className="who">

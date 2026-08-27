@@ -12,7 +12,8 @@
     "test:pages": "node --env-file-if-exists=.env.local db/pages-check.mjs",
     "test:analytics": "node --env-file-if-exists=.env.local db/analytics-check.mjs",
     "digest": "node --env-file-if-exists=.env.local ops/daily-email.mjs",
-    "test:assign": "node --env-file-if-exists=.env.local db/assign-check.mjs"
+    "test:assign": "node --env-file-if-exists=.env.local db/assign-check.mjs",
+    "test:admin": "node --env-file-if-exists=.env.local db/admin-check.mjs"
   },
   "dependencies": {
     "postgres": "^3.4.5",

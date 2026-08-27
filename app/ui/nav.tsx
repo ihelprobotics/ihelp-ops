@@ -14,14 +14,21 @@ const PAGES = [
   { href: "/leave", key: "leave", label: "Leave" },
   { href: "/me", key: "me", label: "Me" },
   { href: "/analytics", key: "analytics", label: "Analytics" },
+  { href: "/admin", key: "admin", label: "Admin" },
 ] as const;
 
 export type NavKey = (typeof PAGES)[number]["key"];
 
-export default function Nav({ current }: { current: NavKey }) {
+/**
+ * `admin` shows the Admin link. Hiding it is a tidiness decision, not a
+ * security one — the page and its route both check the role themselves, and
+ * somebody who types the URL gets the permission table with an explanation
+ * rather than a blank screen.
+ */
+export default function Nav({ current, admin = false }: { current: NavKey; admin?: boolean }) {
   return (
     <nav className="nav">
-      {PAGES.map((p) => (
+      {PAGES.filter((p) => p.key !== "admin" || admin).map((p) => (
         <Link key={p.key} href={p.href} className={p.key === current ? "on" : ""}>
           {p.label}
         </Link>

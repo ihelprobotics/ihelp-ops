@@ -14,7 +14,7 @@ import Nav from "@/app/ui/nav";
 import { PEOPLE_CSS } from "@/app/ui/people-css";
 import type { PersonView } from "@/app/lib/person";
 
-export default function Person({ view, self }: { view: PersonView; self: boolean }) {
+export default function Person({ view, self, admin = false }: { view: PersonView; self: boolean; admin?: boolean }) {
   const s = view.subject;
   const d = view.delivered;
 
@@ -28,7 +28,7 @@ export default function Person({ view, self }: { view: PersonView; self: boolean
             {s.gh_login ? `@${s.gh_login}` : "GitHub not linked"} · {s.role} · {s.agent_tier}
             {s.pod ? ` · ${s.pod}` : ""}
           </p>
-          <Nav current={self ? "me" : "team"} />
+          <Nav current={self ? "me" : "team"} admin={admin} />
         </div>
       </header>
 

@@ -15,6 +15,7 @@ import { auth } from "@/auth";
 import { loadPerson } from "@/app/lib/person";
 import { PEOPLE_CSS } from "@/app/ui/people-css";
 import Nav from "@/app/ui/nav";
+import { isAdmin } from "@/app/lib/roles";
 import Person from "@/app/person/view";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const id = (await params).id;
   const session = await auth();
+  const admin = isAdmin(session?.user?.role ?? "");
 
   // Postgres answers a malformed uuid with "invalid input syntax for type
   // uuid", which is a message about a parser rather than about the page.
@@ -45,14 +47,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   }
 
   if (!error && !view) notFound();
-  if (view) return <Person view={view} self={view.isSelf} />;
+  if (view) return <Person view={view} self={view.isSelf} admin={admin} />;
 
   return (
     <main className="wrap">
       <header className="top">
         <div>
           <h1>Person</h1>
-          <Nav current="team" />
+          <Nav current="team" admin={admin} />
         </div>
       </header>
       <div className="error">{error}</div>
