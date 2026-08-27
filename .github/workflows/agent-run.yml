@@ -135,7 +135,30 @@ jobs:
           BRANCH="agent/${AGENT}/issue-${ISSUE}"
           git config user.name "iHelp ${AGENT} agent"
           git config user.email "agents@ihelprobotics.com"
-          git switch -c "$BRANCH"
+
+          # Resume the branch if it is already on the remote, rather than
+          # starting a new one from main.
+          #
+          # This used to be `git switch -c` unconditionally, which is fine
+          # exactly once. The second run for the same agent and issue built a
+          # branch with no ancestry to the remote one, and the push at the end
+          # was rejected non-fast-forward — after the agent had run and been
+          # paid for. Every re-run failed, and the failure arrived at the last
+          # step of the job.
+          #
+          # The name is one branch per agent per issue on purpose:
+          # branchIsForTask in app/lib/progress.ts matches
+          # agent/<agent>/issue-<n> anchored at both ends, so a run-suffixed
+          # branch would stop counting towards the task's progress.
+          git fetch origin "$BRANCH" --depth=1 2>/dev/null && FOUND=1 || FOUND=0
+          if [ "$FOUND" = "1" ]; then
+            echo "Resuming $BRANCH, which already exists on the remote."
+            git switch -c "$BRANCH" FETCH_HEAD
+            echo "resumed=true" >> "$GITHUB_OUTPUT"
+          else
+            git switch -c "$BRANCH"
+            echo "resumed=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Run the agent
@@ -304,14 +327,25 @@ jobs:
             fi
           } > "$RUNNER_TEMP/pr-body.md"
 
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "${AGENT}: ${TITLE} (#${ISSUE})" \
-            --body-file "$RUNNER_TEMP/pr-body.md" \
-            --label agent-authored
+          # A resumed branch may already have an open pull request. Creating a
+          # second one against the same head is an error, and the run would die
+          # here having already pushed the work — so the existing one is
+          # commented on instead. The cost line matters: without it a re-run's
+          # spend appears nowhere a human reading the pull request would see it.
+          if EXISTING=$(gh pr view "$BRANCH" --json url,state -q 'select(.state=="OPEN") | .url') && [ -n "$EXISTING" ]; then
+            echo "Pull request already open for $BRANCH: $EXISTING"
+            gh pr comment "$EXISTING" --body "$(printf 'Another **%s** run for @%s pushed to this branch.\n\nPlatform run: `%s`\nCost: $%s' "$AGENT" "$REQUESTER" "$RUN_ID" "${COST:-0}")"
+            echo "url=$EXISTING" >> "$GITHUB_OUTPUT"
+          else
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "${AGENT}: ${TITLE} (#${ISSUE})" \
+              --body-file "$RUNNER_TEMP/pr-body.md" \
+              --label agent-authored
 
-          echo "url=$(gh pr view "$BRANCH" --json url -q .url)" >> "$GITHUB_OUTPUT"
+            echo "url=$(gh pr view "$BRANCH" --json url -q .url)" >> "$GITHUB_OUTPUT"
+          fi
 
       # Always. A run the platform never hears about stays "running" for ever,
       # and the two-concurrent-run limit then locks the requester out of asking
@@ -323,6 +357,9 @@ jobs:
           PLATFORM_WEBHOOK_SECRET: ${{ secrets.PLATFORM_WEBHOOK_SECRET }}
           RUN_ID: ${{ inputs.run_id }}
           AGENT_OUTCOME: ${{ steps.agent.outcome }}
+          # Whether the agent actually wrote anything. Without it, "no pull
+          # request" cannot be told apart from "nothing needed doing".
+          CHANGED: ${{ steps.diff.outputs.changed }}
           PR_URL: ${{ steps.pr.outputs.url }}
           LOGS: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           COST: ${{ steps.usage.outputs.cost }}
@@ -338,9 +375,23 @@ jobs:
           # Field names match app/api/webhooks/agent/route.ts exactly. Sending
           # "success" with no pr_url is what that route turns into no_changes,
           # which is why a no-diff run still reports success here.
+          #
+          # CHANGED is what makes that safe. This used to read the agent step's
+          # outcome alone, so a run whose agent worked and whose *push* was
+          # rejected reported success with an empty pr_url — and the platform
+          # recorded it as `no_changes`. The ledger then said a run that
+          # produced real work and failed to ship it had found nothing to do:
+          # a false statement, in the benign direction, about work somebody
+          # paid for. A run that changed something and has no pull request to
+          # show for it is a failure, and says so.
           STATUS=failure
           if [ "$AGENT_OUTCOME" = "success" ]; then
-            STATUS=success
+            if [ "$CHANGED" = "true" ] && [ -z "${PR_URL:-}" ]; then
+              STATUS=failure
+              echo "::error::The agent changed files but no pull request exists — the push or the pull request failed. Reporting this run as a failure rather than as 'no changes'. See $LOGS"
+            else
+              STATUS=success
+            fi
           fi
 
           # shellcheck disable=SC2016  # the jq program must reach jq unexpanded
