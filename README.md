@@ -14,7 +14,8 @@ person types how far along they are.
 npm install
 cp .env.example .env.local     # fill in the eight values
 # apply db/schema.sql, then schema-people.sql, schema-people-growth.sql,
-# then schema-note-access.sql, schema-leave-rls.sql, then schema-constraints.sql
+# then schema-note-access.sql, schema-leave-rls.sql, schema-ledger-rls.sql,
+# then schema-constraints.sql
 npm run dev
 ```
 

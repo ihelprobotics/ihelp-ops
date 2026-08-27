@@ -157,12 +157,10 @@ tomorrow's nudge is not silently suppressed.
 
 ## Known, deliberately not fixed
 
-- **Five tables still have RLS enabled and no policies**, readable only because
-  the app connects as a BYPASSRLS role: `agent_run`, `gh_event`,
-  `commit_event`, `notification_log`, `local_session`. None of them is scoped
-  to a person in the way leave and notes are — they are the artifact ledger and
-  the mail log, read by the platform rather than about anybody. Worth policies
-  eventually; not the same class of gap.
+- Every table in `public` now carries at least one policy. The ledger —
+  `gh_event`, `commit_event`, `agent_run` — is readable by anyone signed in and
+  by no one who is not; `notification_log` and `local_session` follow the leave
+  rule, because being nudged and which branch you sat on are about a person.
 - **A dedicated login role** would be better than `authenticated`. That needs a
   password and a change to `DATABASE_URL` in two places. `DB_APP_ROLE` is the seam.
 - **`git config user.email` is repo-locally the GitHub noreply address**, so the

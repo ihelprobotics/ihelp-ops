@@ -183,6 +183,18 @@ try {
         return "allowed";
       })(), "allowed");
 
+      // Ledger fixtures, written as the owner — which is how the webhook, the
+      // agent callback and the Claude Code hooks all write them.
+      const LREPO = `ppl-check/${tag}`;
+      await tx`insert into gh_event (kind, repo, number, actor, occurred_at, payload)
+               values ('pr_merged', ${LREPO}, 7, 'someone', now(), '{}'::jsonb)`;
+      await tx`insert into commit_event (repo, sha, author, branch, message, issue_number, committed_at)
+               values (${LREPO}, ${`ppl-${tag}-sha`}, 'someone', 'main', 'x', 7, now())`;
+      await tx`insert into agent_run (requester_id, agent, repo, issue_number, status, cost_usd)
+               values (${member}, 'scribe', ${LREPO}, 7, 'success', 0.11)`;
+      await tx`insert into local_session (session_id, user_id, repo, branch, issue_number)
+               values (${`ppl-${tag}-sess`}, ${member}, ${LREPO}, 'task/7/x', 7)`;
+
       // =====================================================================
       // C. Leave, under the policies rather than under a WHERE clause.
       // =====================================================================
@@ -265,7 +277,55 @@ try {
          (await tx`delete from leave_request where user_id = ${member} returning id`).length, 0);
 
       // =====================================================================
-      // D. What /me and /person/[id] read, under the policies.
+      // D. The ledger, and the two records that are about a person.
+      // =====================================================================
+      console.log("\n— the ledger, and what is personal in it —");
+
+      // The evidence the board and /analytics are computed from. Open to the
+      // team, closed to a session with nobody set.
+      await as0(member, "member");
+      is("anyone signed in reads the event ledger",
+         (await tx`select id from gh_event where repo = ${LREPO}`).length, 1);
+      is("and the commits",
+         (await tx`select sha from commit_event where repo = ${LREPO}`).length, 1);
+      is("and what the agents cost",
+         (await tx`select id from agent_run where repo = ${LREPO}`).length, 1);
+
+      await tx`select set_config('app.user_id', '', true)`;
+      await tx`select set_config('app.user_role', '', true)`;
+      is("with nobody set, the ledger reads nothing",
+         (await tx`select id from gh_event where repo = ${LREPO}`).length, 0);
+      is("nor the commits", (await tx`select sha from commit_event where repo = ${LREPO}`).length, 0);
+      is("nor the runs", (await tx`select id from agent_run where repo = ${LREPO}`).length, 0);
+
+      // A nudge says "nothing was recorded against your name today". That is
+      // material for a conversation with your lead, not for comparison between
+      // colleagues.
+      await as0(member, "member");
+      is("you can see that you were nudged",
+         (await tx`select id from notification_log where user_id = ${member} and kind = 'nudge'`).length, 1);
+      is("and the session your own editor reported",
+         (await tx`select session_id from local_session where user_id = ${member}`).length, 1);
+
+      await as0(leadId, "lead");
+      is("your lead can see it too",
+         (await tx`select id from notification_log where user_id = ${member} and kind = 'nudge'`).length, 1);
+
+      await as0(cto, "member");        // the CTO's id without the role — a colleague
+      is("a colleague cannot see that you were nudged",
+         (await tx`select id from notification_log where user_id = ${member}`).length, 0);
+      is("nor which branch you sat on",
+         (await tx`select session_id from local_session where user_id = ${member}`).length, 0);
+
+      // The digest is addressed to a lead and is about everybody, so it belongs
+      // to no one person and stays closed to everyone but the roles it reaches.
+      is("a colleague cannot read the digest log",
+         (await tx`select id from notification_log where user_id is null`).length, 0);
+      await as0(cto, "cto");
+      is("the CTO can", (await tx`select id from notification_log where user_id is null`).length >= 1, true);
+
+      // =====================================================================
+      // E. What /me and /person/[id] read, under the policies.
       // =====================================================================
       console.log("\n— the person page, under row-level security —");
 
