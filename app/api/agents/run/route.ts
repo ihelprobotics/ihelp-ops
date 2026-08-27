@@ -101,10 +101,25 @@ export async function POST(req: Request) {
   if (!res.ok) {
     const detail = await res.text();
     await sql`update agent_run set status='failure', finished_at=now() where id=${run.id}`;
+
     // Say what actually failed. A generic error sends people hunting in the
     // wrong place, which is the same failure this codebase avoids elsewhere.
+    //
+    // 404 here almost always means one thing, and it is not "no such
+    // repository": the board only offers repositories the token can read, so it
+    // got this far. The workflow file is missing. Agents run inside GitHub
+    // Actions, so agent-run.yml has to exist in each repository they work on —
+    // and with the board now covering a whole organisation, most repositories
+    // will not have it yet. Naming that saves an afternoon.
+    const hint =
+      res.status === 404
+        ? `${repo} has no .github/workflows/agent-run.yml, so there is no agent workflow to dispatch. Agents run inside GitHub Actions in the repository they are working on — copy that workflow (and reviewer.yml) into ${repo} to run agents there. Everything else on the board works without it.`
+        : res.status === 403
+        ? "GH_DISPATCH_TOKEN cannot start workflows in this repository. A classic token needs `repo`; a fine-grained one needs Actions: write."
+        : "";
+
     return NextResponse.json(
-      { error: `GitHub refused the dispatch (${res.status}). ${detail}` },
+      { error: `GitHub refused the dispatch (${res.status}). ${hint} ${detail}`.replace(/\s+/g, " ").trim() },
       { status: 502 }
     );
   }

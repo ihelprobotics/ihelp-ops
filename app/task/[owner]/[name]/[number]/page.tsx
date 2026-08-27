@@ -47,7 +47,7 @@ export default async function TaskPage({
   let repo: string | null = null;
   let configError = "";
   try {
-    const found = repoFromPath(p.owner, p.name);
+    const found = await repoFromPath(p.owner, p.name);
     repo = found?.full ?? null;
   } catch (e: any) {
     configError = e?.message ?? String(e);   // REPOS itself is unset or malformed

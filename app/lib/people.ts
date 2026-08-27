@@ -67,7 +67,7 @@ export async function loadTeam(): Promise<Team> {
   let names: string[] = [];
 
   try {
-    const list = repos();
+    const list = await repos();
     names = list.map((r) => r.full);
 
     const perRepo = await Promise.all(

@@ -1,6 +1,7 @@
 // GET /api/tasks
 //
-// Open issues, read live from every repository in REPOS. They are not copied
+// Open issues, read live from every repository the platform reports on — every
+// repo in GH_ORG, or the explicit REPOS list. They are not copied
 // into the database on purpose: GitHub stays the single source of truth for
 // what the work is, and a mirror would start disagreeing with it within a week.
 //
@@ -38,7 +39,7 @@ export async function GET() {
 
   let list: Repo[];
   try {
-    list = repos();
+    list = await repos();
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

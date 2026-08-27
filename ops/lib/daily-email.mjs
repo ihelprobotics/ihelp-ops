@@ -40,7 +40,7 @@ const bump = (login, field) => {
   activity.set(login, a);
 };
 
-for (const repo of repos()) {
+for (const repo of await repos()) {
   const commits = await ghAll(`/repos/${repo}/commits?since=${DAY_AGO}&per_page=100`, 2);
   for (const c of commits) bump(c.author?.login, "commits");
 

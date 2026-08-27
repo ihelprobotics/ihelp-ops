@@ -40,15 +40,39 @@ export async function ghAll(path, maxPages = 5) {
   return out;
 }
 
-/** Repositories to report on. A function, not a constant, so the check happens
- *  when it is called rather than when the module is imported. */
-export function repos() {
-  const list = (process.env.REPOS || process.env.OPS_REPO || "")
-    .split(",").map((s) => s.trim()).filter(Boolean);
-  if (list.length === 0) {
-    throw new Error("Set REPOS (or OPS_REPO) to a comma-separated list such as 'ihelp/ev-edge,ihelp/eldercare'.");
+/**
+ * Repositories to report on. A function, not a constant, so the check happens
+ * when it is called rather than when the module is imported.
+ *
+ * The same three sources as app/lib/repos.ts, in the same order, because the
+ * digest and the board must not disagree about which repositories exist. A
+ * person quiet on the board and moving in the digest would be a bug nobody
+ * could explain.
+ *
+ *   REPOS    an explicit list, and it wins
+ *   GH_ORG   every active repository in the organisation, read live
+ *   OPS_REPO the single-repository fallback
+ */
+export async function repos() {
+  const explicit = (process.env.REPOS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (explicit.length) return explicit;
+
+  const org = (process.env.GH_ORG || "").trim();
+  if (org) {
+    const all = await ghAll(`/orgs/${org}/repos?per_page=100&sort=full_name`, 3);
+    // Archived repositories are read-only history. Nudging somebody about work
+    // in one would be asking for something that cannot be done.
+    const list = all.filter((r) => !r.archived && !r.disabled).map((r) => r.full_name);
+    if (list.length === 0) {
+      throw new Error(`GH_ORG is "${org}", but GH_DISPATCH_TOKEN can see no active repositories in it.`);
+    }
+    return list;
   }
-  return list;
+
+  const fallback = (process.env.OPS_REPO || "").trim();
+  if (fallback) return [fallback];
+
+  throw new Error("Set GH_ORG to your GitHub organisation, or REPOS to a comma-separated list such as 'ihelp/ev-edge,ihelp/eldercare'.");
 }
 
 export const hoursSince = (iso) => (Date.now() - new Date(iso).getTime()) / 36e5;

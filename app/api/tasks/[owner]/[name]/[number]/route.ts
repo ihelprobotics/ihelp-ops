@@ -33,7 +33,7 @@ export async function POST(req: Request, { params }: Ctx) {
   // anything else the token happens to be able to see.
   let found;
   try {
-    found = repoFromPath(p.owner, p.name);
+    found = await repoFromPath(p.owner, p.name);
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

@@ -29,7 +29,7 @@ export default async function AnalyticsPage() {
   let a: Awaited<ReturnType<typeof loadAnalytics>> | null = null;
   let error = "";
   try {
-    list = repos().map((r) => r.full);
+    list = (await repos()).map((r) => r.full);
     a = await loadAnalytics(list);
   } catch (e: any) {
     error = e?.message ?? String(e);
