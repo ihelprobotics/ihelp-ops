@@ -105,6 +105,11 @@ Someone new signs in with Google and appears there as a `member` on `week1` with
 no GitHub login. Setting that login is what turns an account into somebody who
 can own work.
 
+**Every role change is recorded** — who made it, when, and what it was before.
+You can see the changes to your own account on your own page, and nobody can
+edit or remove a line, including an admin. Your role changing is a thing that
+happened to you, so it is a thing you can read.
+
 ---
 
 ## Getting a task

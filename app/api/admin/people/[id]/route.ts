@@ -57,8 +57,11 @@ export async function POST(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "The request body is not JSON." }, { status: 400 });
   }
 
-  const [subject] = await sql<{ id: string; role: string; name: string | null }[]>`
-    select id, role, name from app_user where id = ${id}`;
+  // The whole row, not just the role: the audit line records what each field
+  // was before, and a diff needs both sides.
+  const [subject] = await sql<any[]>`
+    select id, name, email, gh_login, role, agent_tier, pod, lead_email, active
+      from app_user where id = ${id}`;
   if (!subject) {
     return NextResponse.json({ error: "There is no account with that id." }, { status: 404 });
   }
@@ -78,6 +81,19 @@ export async function POST(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
   }
 
+  // What would actually move. A form posts every field it renders, so most of
+  // this patch is usually the values that are already there — writing those as
+  // an audit line would fill the history with "changed nothing" and make the
+  // real changes hard to find.
+  const changed: Record<string, { from: string | boolean | null; to: string | boolean | null }> = {};
+  for (const [k, to] of Object.entries(patch)) {
+    const from = subject[k] ?? null;
+    if (from !== (to ?? null)) changed[k] = { from, to: (to ?? null) as string | boolean | null };
+  }
+  if (Object.keys(changed).length === 0) {
+    return NextResponse.json({ person: subject, message: "Nothing changed — those are the values already set." });
+  }
+
   // How many admins would be left if this change went through. Counted here
   // because only this side can see the table, and the rule that needs it —
   // never remove the last person who can grant the role back — cannot be
@@ -90,13 +106,24 @@ export async function POST(req: Request, { params }: Ctx) {
   if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
 
   try {
-    const [updated] = await sql<any[]>`
-      update app_user set ${sql(patch as Record<string, any>)}
-       where id = ${id}
-      returning id, name, email, gh_login, role, agent_tier, pod, lead_email, active`;
+    // The change and its record, in one transaction. A role that moved with no
+    // line behind it is the thing this table exists to prevent, and two
+    // statements outside a transaction is exactly how that happens.
+    const updated = await sql.begin(async (tx) => {
+      const [row] = await tx<any[]>`
+        update app_user set ${tx(patch as Record<string, any>)}
+         where id = ${id}
+        returning id, name, email, gh_login, role, agent_tier, pod, lead_email, active`;
 
-    const said = Object.entries(patch)
-      .map(([k, v]) => `${k} → ${v === null ? "cleared" : v}`)
+      await tx`
+        insert into role_change (subject_id, actor_id, changed)
+        values (${id}, ${actor.id}, ${tx.json(changed as any)})`;
+
+      return row;
+    });
+
+    const said = Object.entries(changed)
+      .map(([k, v]) => `${k} → ${v.to === null ? "cleared" : v.to}`)
       .join(", ");
     return NextResponse.json({
       person: updated,

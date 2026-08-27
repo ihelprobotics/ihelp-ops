@@ -128,9 +128,75 @@ try {
 
   const [check] = await sql`select role, agent_tier from app_user where id = ${junior.id}`;
   is("the database agrees", [check.role, check.agent_tier], ["lead", "week2"]);
+
+  console.log("\n— the audit trail —");
+  const trail = await sql`
+    select changed, actor_id, subject_id, changed_at from role_change
+     where subject_id = ${junior.id} order by changed_at`;
+  is("the promotion was recorded", trail.length >= 1, true);
+  is("with who did it", trail[0]?.actor_id, bossRow.id);
+  is("what it was before", trail[0]?.changed?.role?.from, "member");
+  is("and what it became", trail[0]?.changed?.role?.to, "lead");
+  is("the tier moved in the same line", trail[0]?.changed?.agent_tier?.to, "week2");
+
+  // A form posts every field it renders, so most patches are mostly unchanged
+  // values. Recording those would bury the real changes.
+  const before = (await sql`select count(*)::int as n from role_change where subject_id = ${junior.id}`)[0].n;
+  const noop = await patch(asBoss, junior.id, { role: "lead", agent_tier: "week2" });
+  is("re-sending the same values is accepted", noop.status, 200);
+  is("and says nothing changed", (await noop.json()).message.includes("Nothing changed"), true);
+  is("without writing a line",
+     (await sql`select count(*)::int as n from role_change where subject_id = ${junior.id}`)[0].n, before);
+
+  // Clearing a field is a change, and shows as one.
+  const clearedRow = await sql`
+    select changed from role_change where subject_id = ${junior.id} order by changed_at desc limit 1`;
+  is("clearing a field records it as cleared", clearedRow[0]?.changed?.pod?.to ?? null, null);
+
+  // The record is readable by the person it is about, and by nobody else.
+  await sql.begin(async (tx) => {
+    await tx`select set_config('app.user_id', ${junior.id}, true)`;
+    await tx`select set_config('app.user_role', 'lead', true)`;
+    await tx.unsafe("set local role authenticated");
+    is("the subject can read their own history",
+       (await tx`select id from role_change where subject_id = ${junior.id}`).length >= 1, true);
+
+    await tx`select set_config('app.user_id', ${bossRow.id}, true)`;
+    await tx`select set_config('app.user_role', 'cto', true)`;
+    is("an admin can read anybody's",
+       (await tx`select id from role_change where subject_id = ${junior.id}`).length >= 1, true);
+
+    // A colleague with neither claim.
+    await tx`select set_config('app.user_id', ${bossRow.id}, true)`;
+    await tx`select set_config('app.user_role', 'member', true)`;
+    is("a colleague cannot",
+       (await tx`select id from role_change where subject_id = ${junior.id}`).length, 0);
+
+    await tx`select set_config('app.user_id', '', true)`;
+    is("and unset context reads none", (await tx`select id from role_change`).length, 0);
+
+    // Not even an admin edits or removes a line through the application.
+    let removed = "it was allowed through";
+    try {
+      await tx`savepoint s`;
+      await tx`select set_config('app.user_role', 'cto', true)`;
+      await tx`select set_config('app.user_id', ${bossRow.id}, true)`;
+      await tx`delete from role_change where subject_id = ${junior.id}`;
+      const [{ n }] = await tx`select count(*)::int as n from role_change where subject_id = ${junior.id}`;
+      removed = n === 0 ? "it was allowed through" : "42501";
+      await tx`rollback to savepoint s`;
+    } catch (e) {
+      removed = e.code;
+      await tx`rollback to savepoint s`;
+    }
+    is("an audit line cannot be deleted, even by an admin", removed, "42501");
+  });
 } finally {
   console.log("\n— cleanup —");
-  if (fixtures.length) await sql`delete from app_user where id = any(${fixtures})`;
+  if (fixtures.length) {
+    await sql`delete from role_change where subject_id = any(${fixtures}) or actor_id = any(${fixtures})`;
+    await sql`delete from app_user where id = any(${fixtures})`;
+  }
   const [{ left }] = await sql`select count(*)::int as left from app_user where gh_login like 'adm-%'`;
   is("no fixtures left behind", left, 0);
   await sql.end();

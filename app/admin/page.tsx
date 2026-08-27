@@ -41,6 +41,19 @@ export default async function AdminPage() {
 
   const admins = people.filter((p) => p.active && isAdmin(p.role));
 
+  // Read as the owner, like the rest of this page. The policy on role_change
+  // lets an admin read everything and a person read their own; this page is
+  // already behind the admin check above.
+  const history = allowed
+    ? await sql<{ changed: Record<string, { from: string | boolean | null; to: string | boolean | null }>; changed_at: string; subject: string | null; actor: string | null }[]>`
+        select c.changed, c.changed_at,
+               s.name as subject, a.name as actor
+          from role_change c
+          join app_user s on s.id = c.subject_id
+          join app_user a on a.id = c.actor_id
+         order by c.changed_at desc limit 25`
+    : [];
+
   return (
     <main className="wrap">
       <header className="top">
@@ -100,6 +113,45 @@ export default async function AdminPage() {
             </div>
           )}
         </>
+      )}
+
+      {allowed && (
+        <section>
+          <h2>Changes</h2>
+          <div className="card">
+            {history.length === 0 ? (
+              <p className="muted small">
+                No account has been changed since this record started. Every
+                change from now on appears here, and on the page of the person it
+                was about.
+              </p>
+            ) : (
+              history.map((h, i) => (
+                <div className="row" key={i}>
+                  <span className="when">{new Date(h.changed_at).toLocaleString()}</span>
+                  <span className="what">
+                    <b>{h.subject ?? "an account"}</b>
+                    <span className="muted small">{` · by ${h.actor ?? "unknown"}`}</span>
+                    {/* postgres.js types every column through its own Row,
+                        which widens a jsonb column to unknown. The shape is
+                        written by this route and by nothing else. */}
+                    <p className="body">
+                      {Object.entries(h.changed as Record<string, { from: unknown; to: unknown }>)
+                        .map(([k, v]) => `${k}: ${v.from ?? "none"} → ${v.to ?? "none"}`)
+                        .join(" · ")}
+                    </p>
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+          <p className="muted small">
+            A role used to change because somebody set it, and the only record
+            was the value itself — you could see that a person was a lead, not
+            when, or who decided, or what they were before. Nothing here can be
+            edited or removed through this application, including by an admin.
+          </p>
+        </section>
       )}
 
       <section>

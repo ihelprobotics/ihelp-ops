@@ -165,6 +165,32 @@ export default function Person({ view, self, admin = false }: { view: PersonView
         </div>
       </section>
 
+      {view.accountChanges && view.accountChanges.length > 0 && (
+        <section>
+          <h2>Changes to your account</h2>
+          <div className="card">
+            {view.accountChanges.map((c, i) => (
+              <div className="row" key={i}>
+                <span className="when">{new Date(c.changed_at).toLocaleString()}</span>
+                <span className="what">
+                  <span className="muted small">{`by ${c.actor ?? "unknown"}`}</span>
+                  <p className="body">
+                    {Object.entries(c.changed)
+                      .map(([k, val]) => `${k}: ${val.from ?? "none"} → ${val.to ?? "none"}`)
+                      .join(" · ")}
+                  </p>
+                </span>
+              </div>
+            ))}
+            <p className="muted small" style={{ marginTop: 10 }}>
+              Your role, tier and account details change only through an admin,
+              and every change is recorded here — who made it, when, and what it
+              was before. Nothing is written about you that you cannot read.
+            </p>
+          </div>
+        </section>
+      )}
+
       {view.accessLog && (
         <section>
           <h2>Who has read notes about you</h2>

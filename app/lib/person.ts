@@ -65,6 +65,8 @@ export type PersonView = {
   notesGate: string | null;
   /** Who has opened notes about this person. Shown to the subject only. */
   accessLog: { reader: string | null; read_at: string }[] | null;
+  /** Changes made to this person's own account. Shown to the subject only. */
+  accountChanges: { changed: Record<string, { from: string | boolean | null; to: string | boolean | null }>; changed_at: string; actor: string | null }[] | null;
   delivered: {
     merged: number; mergedAgentAuthored: number; opened: number;
     reviews: number; commits: number;
@@ -150,7 +152,16 @@ export async function loadPerson(viewer: Viewer, subjectId: string): Promise<Per
            where subject_id = ${subject.id} order by read_at desc limit 50`
       : null;
 
-    return { goals, evidence, oneOnOnes, feedback, accessLog };
+    // Same rule, applied to the record of their own role changing. Nothing is
+    // written about a person that the person cannot read — a demotion they
+    // could not see would be the private manager file this codebase refuses.
+    const accountChanges = isSelf
+      ? await tx<any[]>`
+          select changed, changed_at, actor_id from role_change
+           where subject_id = ${subject.id} order by changed_at desc limit 25`
+      : null;
+
+    return { goals, evidence, oneOnOnes, feedback, accessLog, accountChanges };
   });
 
   // Names for every id the guarded reads came back with — note authors, and the
@@ -161,6 +172,7 @@ export async function loadPerson(viewer: Viewer, subjectId: string): Promise<Per
     ...guarded.oneOnOnes.map((r) => r.author_id),
     ...guarded.feedback.map((r) => r.author_id),
     ...(guarded.accessLog ?? []).map((r) => r.reader_id),
+    ...(guarded.accountChanges ?? []).map((r) => r.actor_id),
   ];
   const named = new Map(
     ids.length
@@ -176,6 +188,12 @@ export async function loadPerson(viewer: Viewer, subjectId: string): Promise<Per
 
   const accessLog = guarded.accessLog
     ? guarded.accessLog.map((a) => ({ reader: named.get(a.reader_id) ?? null, read_at: a.read_at }))
+    : null;
+
+  const accountChanges = guarded.accountChanges
+    ? guarded.accountChanges.map((c) => ({
+        changed: c.changed, changed_at: c.changed_at, actor: named.get(c.actor_id) ?? null,
+      }))
     : null;
 
   const { delivered, deliveredMissing, eventsRecorded } = await loadDelivered(subject.gh_login);
@@ -194,6 +212,7 @@ export async function loadPerson(viewer: Viewer, subjectId: string): Promise<Per
     })),
     notesGate: notesGate(viewer, subject.id, isSelf),
     accessLog,
+    accountChanges,
     delivered,
     deliveredMissing,
     eventsRecorded,
