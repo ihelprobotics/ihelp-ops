@@ -1,4 +1,4 @@
-// POST /api/tasks/[number]
+// POST /api/tasks/<owner>/<name>/<number>
 //
 // The four things a person does to a task from the platform: start it, open a
 // pull request, merge, and say something. Each one calls GitHub and changes
@@ -13,10 +13,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
-import { ghFetch, startTask, openPR, merge } from "@/app/lib/github";
+import { ghFetch, startTask, openPR, merge, assign } from "@/app/lib/github";
 import { branchIsForTask } from "@/app/lib/progress";
+import { repoFromPath, taskRef } from "@/app/lib/repos";
+import { canAssign, assignmentMessage, assignsOthers } from "@/app/lib/assign";
 
-type Ctx = { params: Promise<{ number: string }> };
+type Ctx = { params: Promise<{ owner: string; name: string; number: string }> };
 
 export async function POST(req: Request, { params }: Ctx) {
   const session = await auth();
@@ -24,33 +26,35 @@ export async function POST(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
 
-  const repo = process.env.OPS_REPO;
-  if (!repo) {
+  const p = await params;
+
+  // Checked against the configured list, not merely parsed. A repository this
+  // platform does not report on is refused, so the URL cannot be used to reach
+  // anything else the token happens to be able to see.
+  let found;
+  try {
+    found = repoFromPath(p.owner, p.name);
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+  if (!found) {
     return NextResponse.json(
-      { error: "OPS_REPO is not set. Set it to the repository these tasks live in, as owner/name." },
-      { status: 500 }
+      { error: `"${p.owner}/${p.name}" is not one of the repositories this platform reports on. Add it to REPOS if it should be.` },
+      { status: 404 }
     );
   }
+  const repo = found.full;
 
-  const issue = Number((await params).number);
+  const issue = Number(p.number);
   if (!Number.isInteger(issue) || issue < 1) {
     return NextResponse.json({ error: "The task number in the URL is not a number." }, { status: 400 });
   }
 
   const [user] = await sql`
-    select id, gh_login from app_user where email = ${session.user.email}
+    select id, gh_login, role from app_user where email = ${session.user.email}
   `;
   if (!user) {
     return NextResponse.json({ error: "No account for this email. Ask your pod lead." }, { status: 403 });
-  }
-  // Everything below writes into git history under someone's name. An account
-  // with no GitHub login cannot own any of it, so it is refused here rather
-  // than attributed to whoever owns the platform's token.
-  if (!user.gh_login) {
-    return NextResponse.json(
-      { error: "Link your GitHub account first. Branches, pull requests and comments are attributed by GitHub login, and an unlinked account cannot own work." },
-      { status: 403 }
-    );
   }
 
   let body: any;
@@ -61,13 +65,60 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 
   const action = body?.action;
-  const login: string = user.gh_login;
+  const login: string | null = user.gh_login;
+
+  // Starting a task, opening a pull request, merging and commenting all write
+  // into git history under somebody's name, so they need a git identity. An
+  // account with no GitHub login is refused rather than attributed to whoever
+  // owns the platform's token.
+  //
+  // Assigning is deliberately not in that list. The platform assigns with its
+  // own token, so a delivery manager with no GitHub account can still hand work
+  // out — which is most of what a delivery manager does. The rules in
+  // app/lib/assign.ts decide whether this particular person may.
+  if (action !== "assign" && !login) {
+    return NextResponse.json(
+      { error: "Link your GitHub account first. Branches, pull requests and comments are attributed by GitHub login, and an unlinked account cannot own work." },
+      { status: 403 }
+    );
+  }
 
   try {
     switch (action) {
+      case "assign": {
+        // null clears it. Anything else has to be a GitHub username.
+        const to = body?.to === null || body?.to === undefined ? null : String(body.to).trim();
+        if (to !== null && !/^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/.test(to)) {
+          return NextResponse.json(
+            { error: `"${to}" is not a GitHub username. Assignment matches on the login, not on a display name or an email.` },
+            { status: 400 }
+          );
+        }
+
+        const { body: current } = await ghFetch(`/repos/${repo}/issues/${issue}`);
+        if (current?.pull_request) {
+          return NextResponse.json(
+            { error: `${taskRef(repo, issue)} is a pull request, not a task. Assign the issue it closes.` },
+            { status: 400 }
+          );
+        }
+        const held: string | null = current?.assignee?.login ?? null;
+
+        const actor = { login, role: user.role as string };
+        const refusal = canAssign(actor, held, to);
+        if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
+
+        const now = await assign(repo, issue, to);
+        const self = !!login && to?.toLowerCase() === login.toLowerCase();
+        return NextResponse.json({
+          assignee: now,
+          message: assignmentMessage(taskRef(repo, issue), now, assignsOthers(actor) && !self, self),
+        });
+      }
+
       case "start": {
         const title = await issueTitle(repo, issue);
-        const started = await startTask({ repo, issue, title, login });
+        const started = await startTask({ repo, issue, title, login: login as string });
         return NextResponse.json({
           ...started,
           message: `Branch ${started.branch} is ready. It carries the task number, so every commit on it attributes itself.`,
@@ -77,7 +128,7 @@ export async function POST(req: Request, { params }: Ctx) {
       case "pr": {
         const branch = await taskBranch(repo, issue, body?.branch);
         const title = await issueTitle(repo, issue);
-        const pr = await openPR({ repo, branch, issue, title, login });
+        const pr = await openPR({ repo, branch, issue, title, login: login as string });
         return NextResponse.json({ url: pr?.html_url, number: pr?.number, message: `Pull request #${pr?.number} opened from ${branch}.` });
       }
 
@@ -112,7 +163,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
       default:
         return NextResponse.json(
-          { error: `Unknown action "${action ?? ""}". This route accepts start, pr, merge or comment.` },
+          { error: `Unknown action "${action ?? ""}". This route accepts assign, start, pr, merge or comment.` },
           { status: 400 }
         );
     }

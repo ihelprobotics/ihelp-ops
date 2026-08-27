@@ -1,8 +1,12 @@
 // GET /api/tasks
 //
-// Reads open issues live from GitHub. They are not copied into the database on
-// purpose: GitHub stays the single source of truth for what the work is, and a
-// mirror would start disagreeing with it within a week.
+// Open issues, read live from every repository in REPOS. They are not copied
+// into the database on purpose: GitHub stays the single source of truth for
+// what the work is, and a mirror would start disagreeing with it within a week.
+//
+// A task is identified by a repository *and* a number. Issue #1 exists in every
+// repository there has ever been, so every task here carries its repo and every
+// link is built from both.
 //
 // Progress is derived from what actually happened — never typed by anyone. All
 // seven stages from docs/02-data-model.md are computed here:
@@ -14,15 +18,31 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
 import { stageOf, branchIsForTask } from "@/app/lib/progress";
+import { repos, taskHref, type Repo } from "@/app/lib/repos";
+
+type Row = {
+  repo: string;
+  number: number;
+  title: string;
+  url: string;
+  href: string;
+  assignee: string | null;
+  labels: string[];
+  progress: number;
+  updated_at: string;
+};
 
 export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
 
-  const repo = process.env.OPS_REPO;
-  if (!repo) {
-    return NextResponse.json({ error: "OPS_REPO is not set. Set it to the repository whose issues should appear here, as owner/name." }, { status: 500 });
+  let list: Repo[];
+  try {
+    list = repos();
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
+
   if (!process.env.GH_DISPATCH_TOKEN) {
     return NextResponse.json({ error: "GH_DISPATCH_TOKEN is not set, so GitHub cannot be read." }, { status: 500 });
   }
@@ -33,65 +53,77 @@ export async function GET() {
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  // Issues and branches in parallel. Branch existence is what proves stage 20,
-  // and it is not something GitHub sends as a webhook event we store.
-  const [issueRes, branchRes] = await Promise.all([
-    fetch(`https://api.github.com/repos/${repo}/issues?state=open&per_page=50`, { headers, cache: "no-store" }),
-    fetch(`https://api.github.com/repos/${repo}/branches?per_page=100`, { headers, cache: "no-store" }),
-  ]);
+  // One repository failing must not blank the others. Each is read
+  // independently and reports its own problem, so a token that lost access to
+  // one repo shows an error beside that repo rather than an empty board.
+  const perRepo = await Promise.all(
+    list.map(async (r) => {
+      const [issueRes, branchRes] = await Promise.all([
+        fetch(`https://api.github.com/repos/${r.full}/issues?state=open&per_page=50`, { headers, cache: "no-store" }),
+        fetch(`https://api.github.com/repos/${r.full}/branches?per_page=100`, { headers, cache: "no-store" }),
+      ]);
 
-  if (!issueRes.ok) {
-    const detail = await issueRes.text();
-    const hint = issueRes.status === 404
-      ? `Either OPS_REPO ("${repo}") is wrong, or the token's repository access list does not include it.`
-      : issueRes.status === 401
-      ? "GH_DISPATCH_TOKEN is invalid or expired."
-      : "";
-    return NextResponse.json({ error: `GitHub returned ${issueRes.status} for issues. ${hint} ${detail}` }, { status: 502 });
-  }
+      if (!issueRes.ok) {
+        const detail = (await issueRes.text()).slice(0, 200);
+        const hint =
+          issueRes.status === 404
+            ? `Either "${r.full}" is wrong, or the token's repository access list does not include it — a fine-grained token answers 404, not 403, for a repo it cannot see.`
+            : issueRes.status === 401
+            ? "GH_DISPATCH_TOKEN is invalid or expired."
+            : "";
+        return { repo: r.full, error: `GitHub returned ${issueRes.status} for ${r.full}. ${hint} ${detail}`.trim(), issues: [], branches: [] };
+      }
 
-  const issues = (await issueRes.json()).filter((i: any) => !i.pull_request);
-  const branches: string[] = branchRes.ok
-    ? (await branchRes.json()).map((b: any) => b.name)
-    : [];                                    // branch listing failing degrades stage 20, it does not break the page
+      const issues = (await issueRes.json()).filter((i: any) => !i.pull_request);
+      // A failed branch listing degrades stage 20; it does not break the repo.
+      const branches: string[] = branchRes.ok ? (await branchRes.json()).map((b: any) => b.name) : [];
+      return { repo: r.full, error: null as string | null, issues, branches };
+    })
+  );
 
-  const numbers = issues.map((i: any) => i.number);
+  // Evidence for every task on the board, in two queries rather than per repo.
+  const names = perRepo.map((p) => p.repo);
+  const numbers = perRepo.flatMap((p) => p.issues.map((i: any) => i.number));
 
-  // Events, commits and workflow conclusions — the three derived sources.
   const [events, commits] = numbers.length
     ? await Promise.all([
-        sql`select kind, number, occurred_at, payload from gh_event
-             where repo = ${repo} and number = any(${numbers})`,
-        sql`select distinct issue_number from commit_event
-             where repo = ${repo} and issue_number = any(${numbers})`,
+        sql<{ kind: string; repo: string; number: number }[]>`
+          select kind, repo, number from gh_event
+           where repo = any(${names}) and number = any(${numbers})`,
+        sql<{ repo: string; issue_number: number }[]>`
+          select distinct repo, issue_number from commit_event
+           where repo = any(${names}) and issue_number = any(${numbers})`,
       ])
     : [[], []];
 
-  const committed = new Set(commits.map((c: any) => c.issue_number));
+  const committed = new Set(commits.map((c) => `${c.repo}#${c.issue_number}`));
 
-  // The ladder itself lives in app/lib/progress.ts, because /task/[number]
-  // climbs the same one. This function only gathers the evidence.
-  const progressOf = (n: number) =>
-    stageOf({
-      kinds: events.filter((e: any) => e.number === n).map((e: any) => e.kind),
-      hasCommit: committed.has(n),
-      hasBranch: branches.some((b) => branchIsForTask(b, n)),
-    });
+  const tasks: Row[] = perRepo.flatMap((p) =>
+    p.issues.map((i: any): Row => ({
+      repo: p.repo,
+      number: i.number,
+      title: i.title,
+      url: i.html_url,
+      href: taskHref(p.repo, i.number),
+      // Exactly one name, or none. GitHub allows several; this platform does
+      // not, and showing the first of many would hide that it happened.
+      assignee: i.assignee?.login ?? null,
+      labels: (i.labels || []).map((l: any) => l.name),
+      progress: stageOf({
+        kinds: events.filter((e) => e.repo === p.repo && e.number === i.number).map((e) => e.kind),
+        hasCommit: committed.has(`${p.repo}#${i.number}`),
+        hasBranch: p.branches.some((b: string) => branchIsForTask(b, i.number)),
+      }),
+      updated_at: i.updated_at,
+    }))
+  );
 
   return NextResponse.json({
-    repo,
+    repos: perRepo.map((p) => ({ repo: p.repo, error: p.error, open: p.issues.length })),
     // Reported so an operator can tell "nothing has happened yet" apart from
     // "the webhook was never connected" — two very different situations that a
     // bare set of 10% bars would look identical for.
     events_recorded: events.length,
-    tasks: issues.map((i: any) => ({
-      number: i.number,
-      title: i.title,
-      url: i.html_url,
-      assignee: i.assignee?.login ?? null,
-      labels: (i.labels || []).map((l: any) => l.name),
-      progress: progressOf(i.number),
-      updated_at: i.updated_at,
-    })),
+    tasks,
   });
 }

@@ -31,7 +31,7 @@ export default async function TeamPage() {
       <header className="top">
         <div>
           <h1>Team</h1>
-          <p className="sub">{team?.repo ?? "OPS_REPO not set"}</p>
+          <p className="sub">{team?.repos.length ? team.repos.join(" · ") : "no repositories configured"}</p>
           <Nav current="team" />
         </div>
         {session?.user && (
@@ -99,9 +99,9 @@ export default async function TeamPage() {
                         <span className="muted small">nothing open</span>
                       ) : (
                         m.open.map((t, i) => (
-                          <span key={t.number}>
+                          <span key={`${t.repo}#${t.number}`}>
                             {i > 0 && <span className="muted"> · </span>}
-                            <Link href={`/task/${t.number}`}>#{t.number}</Link> {t.title}
+                            <Link href={t.href}>{`#${t.number}`}</Link>{` ${t.title}`}
                           </span>
                         ))
                       )}
@@ -127,18 +127,20 @@ export default async function TeamPage() {
                 <p className="muted small">Every open issue has an assignee.</p>
               ) : (
                 team.unassigned.map((t) => (
-                  <div className="row" key={t.number}>
-                    <span className="when">#{t.number}</span>
+                  <div className="row" key={`${t.repo}#${t.number}`}>
+                    <span className="when">{`#${t.number}`}</span>
                     <span className="what">
-                      <Link href={`/task/${t.number}`}>{t.title}</Link>
+                      <Link href={t.href}>{t.title}</Link>
+                      {team.repos.length > 1 && <span className="muted small">{` · ${t.repo}`}</span>}
                     </span>
                   </div>
                 ))
               )}
             </div>
             <p className="muted small">
-              Read live from GitHub. Assignment happens there, not here — two
-              places to assign work means neither is the real one.
+              Read live from GitHub. Anyone can take one of these from the board;
+              a lead can hand one to somebody. Either way the name lands on the
+              GitHub issue, which stays the only place assignment is recorded.
             </p>
           </section>
         </>

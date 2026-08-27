@@ -10,6 +10,7 @@
 
 import { sql } from "@/lib/db";
 import { ghFetch, expectList } from "@/app/lib/github";
+import { repos, taskHref } from "@/app/lib/repos";
 
 export type Person = {
   id: string;
@@ -25,14 +26,15 @@ export type Person = {
 export type TeamMember = Person & {
   onLeave: { kind: string; ends_on: string } | null;
   /** Open issues assigned to this person, live from GitHub. Null when unread. */
-  open: { number: number; title: string }[] | null;
+  open: { repo: string; number: number; title: string; href: string }[] | null;
 };
 
 export type Team = {
-  repo: string | null;
+  /** Every repository the board reports on. */
+  repos: string[];
   pods: { pod: string; members: TeamMember[] }[];
   /** Open issues with nobody's name on them. Unassigned work is a fact, not a gap. */
-  unassigned: { number: number; title: string }[] | null;
+  unassigned: { repo: string; number: number; title: string; href: string }[] | null;
   /**
    * Why the open-work column is empty, when it is. "Nobody has anything open"
    * and "GitHub could not be read" look identical otherwise, and they send you
@@ -41,9 +43,9 @@ export type Team = {
   workError: string | null;
 };
 
-export async function loadTeam(): Promise<Team> {
-  const repo = process.env.OPS_REPO ?? null;
+type Work = { repo: string; number: number; title: string; href: string };
 
+export async function loadTeam(): Promise<Team> {
   const [people, away] = await Promise.all([
     sql<Person[]>`
       select id, name, email, gh_login, role, agent_tier, pod, lead_email
@@ -56,31 +58,42 @@ export async function loadTeam(): Promise<Team> {
 
   const onLeave = new Map(away.map((l) => [l.user_id, { kind: l.kind, ends_on: l.ends_on }]));
 
-  // Open issues, live. A failure here degrades one column and says so; it does
-  // not take the page down, because the team list is worth reading on its own.
-  let byAssignee: Map<string, { number: number; title: string }[]> | null = null;
-  let unassigned: { number: number; title: string }[] | null = null;
+  // Open issues across every configured repository, live. A failure degrades
+  // one column and says so; it does not take the page down, because the team
+  // list is worth reading on its own.
+  let byAssignee: Map<string, Work[]> | null = null;
+  let unassigned: Work[] | null = null;
   let workError: string | null = null;
+  let names: string[] = [];
 
-  if (!repo) {
-    workError = "OPS_REPO is not set, so there is no repository to read open work from. Set it to owner/name.";
-  } else {
-    try {
-      const { body } = await ghFetch(`/repos/${repo}/issues?state=open&per_page=100`);
-      const issues = expectList(body, "issues").filter((i: any) => !i.pull_request);
-      byAssignee = new Map();
-      unassigned = [];
+  try {
+    const list = repos();
+    names = list.map((r) => r.full);
+
+    const perRepo = await Promise.all(
+      list.map(async (r) => {
+        const { body } = await ghFetch(`/repos/${r.full}/issues?state=open&per_page=100`);
+        return { repo: r.full, issues: expectList(body, "issues").filter((i: any) => !i.pull_request) };
+      })
+    );
+
+    byAssignee = new Map();
+    unassigned = [];
+    for (const { repo, issues } of perRepo) {
       for (const i of issues) {
-        const entry = { number: i.number as number, title: i.title as string };
+        const entry: Work = { repo, number: i.number, title: i.title, href: taskHref(repo, i.number) };
+        // One name or none, matching what the board and the task page enforce.
+        // A task GitHub still has two names on shows under both, which is how
+        // you would find out it happened.
         const assignees: string[] = (i.assignees ?? []).map((a: any) => a.login);
         if (assignees.length === 0) unassigned.push(entry);
         for (const login of assignees) {
           byAssignee.set(login, [...(byAssignee.get(login) ?? []), entry]);
         }
       }
-    } catch (e: any) {
-      workError = e?.message ?? String(e);
     }
+  } catch (e: any) {
+    workError = e?.message ?? String(e);
   }
 
   const members: TeamMember[] = people.map((p) => ({
@@ -100,7 +113,7 @@ export async function loadTeam(): Promise<Team> {
     pods[order.get(pod)!].members.push(m);
   }
 
-  return { repo, pods, unassigned, workError };
+  return { repos: names, pods, unassigned, workError };
 }
 
 /**

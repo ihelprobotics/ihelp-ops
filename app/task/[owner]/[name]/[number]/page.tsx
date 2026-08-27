@@ -1,4 +1,12 @@
-// /task/[number] — one task, and the evidence behind every number on it.
+// /task/<owner>/<name>/<number> — one task, and the evidence behind every
+// number on it.
+//
+// The repository is in the URL because a task is a repository *and* a number.
+// Issue #1 exists in every repository there has ever been, and a bare number
+// would quietly show one team's work under another's name. The repository is
+// also checked against the configured list rather than merely parsed — without
+// that, anyone could read any repository the token can see by typing its name
+// into the address bar, which is a far wider door than the board opens.
 //
 // A server component, because almost all of this is facts being read: the issue
 // and its comments and pull request live from GitHub, the commits and agent
@@ -12,24 +20,43 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { loadTask } from "@/app/lib/task";
+import { repoFromPath } from "@/app/lib/repos";
+import { assignsOthers } from "@/app/lib/assign";
+import { sql } from "@/lib/db";
 import { TASK_CSS } from "./css";
 import TaskActions from "./actions";
+import Assignee from "./assignee";
 import Evidence from "./evidence";
 
 export const dynamic = "force-dynamic";
 
-export default async function TaskPage({ params }: { params: Promise<{ number: string }> }) {
-  const n = Number((await params).number);
+export default async function TaskPage({
+  params,
+}: {
+  params: Promise<{ owner: string; name: string; number: string }>;
+}) {
+  const p = await params;
+  const n = Number(p.number);
   const session = await auth();
-  const repo = process.env.OPS_REPO;
 
   if (!Number.isInteger(n) || n < 1) notFound();
 
+  // Resolved before the try, because notFound() works by throwing a value
+  // Next.js catches itself — calling it inside a catch-all would turn "no such
+  // repository" into an error message about a control-flow signal.
+  let repo: string | null = null;
+  let configError = "";
+  try {
+    const found = repoFromPath(p.owner, p.name);
+    repo = found?.full ?? null;
+  } catch (e: any) {
+    configError = e?.message ?? String(e);   // REPOS itself is unset or malformed
+  }
+  if (!configError && !repo) notFound();
+
   let task: Awaited<ReturnType<typeof loadTask>> = null;
-  let error = "";
-  if (!repo) {
-    error = "OPS_REPO is not set. Set it to the repository these tasks live in, as owner/name — without it there is no task to show.";
-  } else {
+  let error = configError;
+  if (repo) {
     try {
       task = await loadTask(repo, n);
     } catch (e: any) {
@@ -42,13 +69,23 @@ export default async function TaskPage({ params }: { params: Promise<{ number: s
   const pr = task?.pr ?? null;
   const prState = pr ? pr.state : null;
 
+  // Who this task could be handed to. Only accounts with a linked GitHub login
+  // can hold work, so the list is exactly those — an unlinked colleague is not
+  // offered and then refused.
+  const canAssignOthers = assignsOthers({ login, role: session?.user?.role ?? "member" });
+  const people = canAssignOthers
+    ? await sql<{ name: string | null; gh_login: string }[]>`
+        select name, gh_login from app_user
+         where active and gh_login is not null order by name nulls last`
+    : [];
+
   return (
     <main className="wrap">
       <header className="top">
         <div>
           <Link className="back muted" href="/">&larr; Board</Link>
           <h1>{task ? `#${task.number} ${task.issue.title}` : `#${n}`}</h1>
-          <p className="sub">{repo ?? "OPS_REPO not set"}</p>
+          <p className="sub">{repo ?? `${p.owner}/${p.name}`}</p>
         </div>
         {task && (
           <div className="who">
@@ -75,6 +112,23 @@ export default async function TaskPage({ params }: { params: Promise<{ number: s
               <p className="body">{task.issue.body}</p>
             </div>
           )}
+
+          <section>
+            <h2>Owner</h2>
+            <div className="card">
+              <Assignee
+                href={`/api/tasks/${repo}/${task.number}`}
+                current={task.issue.assignee}
+                actor={{ login, role: session?.user?.role ?? "member" }}
+                people={people}
+              />
+              <p className="muted small" style={{ marginTop: 10 }}>
+                One name, never two. A task with two owners has none — and
+                &ldquo;somebody was going to do it&rdquo; is the outcome this
+                platform exists to make impossible.
+              </p>
+            </div>
+          </section>
 
           <section>
             <h2>Do</h2>

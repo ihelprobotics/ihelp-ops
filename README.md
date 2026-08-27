@@ -32,6 +32,7 @@ npm run test:people     # leave, the digest's filter, and the person page
 npm run test:webhook    # the seven rungs of the progress ladder  (needs npm run dev)
 npm run test:pages      # the four screens, signed in as three people (needs npm run dev)
 npm run test:analytics  # every figure on /analytics, from seeded rows  (needs npm run dev)
+npm run test:assign     # who may take work, across every repo      (needs npm run dev)
 ```
 
 `test:webhook` and `test:pages` take `WEBHOOK_URL` / `PAGE_URL` to run against

@@ -153,6 +153,48 @@ export async function startTask(opts: {
   };
 }
 
+/**
+ * Set a task's assignee to exactly one person, or to nobody.
+ *
+ * GitHub's assignees endpoint adds and removes rather than replaces, so a
+ * straight POST leaves the previous holder in place and produces the two-owner
+ * task this platform is built to prevent. Everyone currently on it is removed
+ * first, then the new name is added — which also makes "hand it back" the same
+ * operation with a null.
+ *
+ * A login GitHub does not accept as an assignee is silently ignored by that
+ * API: it answers 201 having assigned nobody. So the result is read back and
+ * checked, rather than assumed from the status code.
+ */
+export async function assign(repo: string, issue: number, to: string | null) {
+  const { body: before } = await ghFetch(`/repos/${repo}/issues/${issue}`);
+  const current: string[] = (before?.assignees ?? []).map((a: any) => a.login);
+
+  if (current.length) {
+    await ghFetch(`/repos/${repo}/issues/${issue}/assignees`, {
+      method: "DELETE",
+      body: JSON.stringify({ assignees: current }),
+    });
+  }
+
+  if (to) {
+    await ghFetch(`/repos/${repo}/issues/${issue}/assignees`, {
+      method: "POST",
+      body: JSON.stringify({ assignees: [to] }),
+    });
+  }
+
+  const { body: after } = await ghFetch(`/repos/${repo}/issues/${issue}`);
+  const now: string[] = (after?.assignees ?? []).map((a: any) => a.login);
+
+  if (to && !now.some((l) => l.toLowerCase() === to.toLowerCase())) {
+    throw new Error(
+      `GitHub did not assign @${to} to ${repo}#${issue}. It accepts an assignee only if that account can be assigned in this repository — usually meaning @${to} is not a collaborator on it. The task is now unassigned.`
+    );
+  }
+  return now[0] ?? null;
+}
+
 /** Open a pull request from the platform. */
 export async function openPR(opts: {
   repo: string; branch: string; issue: number; title: string; login: string;

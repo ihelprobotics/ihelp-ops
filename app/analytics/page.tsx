@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { loadAnalytics, STALL_DAYS } from "@/app/lib/analytics";
+import { repos } from "@/app/lib/repos";
 import { stageLabel } from "@/app/lib/progress";
 import { PEOPLE_CSS } from "@/app/ui/people-css";
 import Nav from "@/app/ui/nav";
@@ -24,18 +25,14 @@ const pct = (part: number, whole: number) => (whole === 0 ? "—" : `${Math.roun
 
 export default async function AnalyticsPage() {
   const session = await auth();
-  const repo = process.env.OPS_REPO;
-
+  let list: string[] = [];
   let a: Awaited<ReturnType<typeof loadAnalytics>> | null = null;
   let error = "";
-  if (!repo) {
-    error = "OPS_REPO is not set, so there is no repository to report on. Set it to owner/name.";
-  } else {
-    try {
-      a = await loadAnalytics(repo);
-    } catch (e: any) {
-      error = e?.message ?? String(e);
-    }
+  try {
+    list = repos().map((r) => r.full);
+    a = await loadAnalytics(list);
+  } catch (e: any) {
+    error = e?.message ?? String(e);
   }
 
   return (
@@ -43,7 +40,7 @@ export default async function AnalyticsPage() {
       <header className="top">
         <div>
           <h1>Analytics</h1>
-          <p className="sub">{repo ?? "OPS_REPO not set"}</p>
+          <p className="sub">{list.length ? list.join(" · ") : "no repositories configured"}</p>
           <Nav current="analytics" />
         </div>
         {session?.user && (
@@ -59,7 +56,7 @@ export default async function AnalyticsPage() {
       {a?.eventsRecorded === 0 && (
         <div className="notice">
           Every number below is zero because the platform has no GitHub events on
-          record for this repository — not because nothing shipped. The webhook
+          record — not because nothing shipped. The webhook
           at <code>/api/webhooks/github</code> has never delivered. Until it
           does, cycle time and review latency have nothing to be computed from.
         </div>
@@ -117,9 +114,9 @@ export default async function AnalyticsPage() {
                   {a.claimed.assignedNoArtifact.length > 0 && (
                     <div style={{ marginTop: 10 }}>
                       {a.claimed.assignedNoArtifact.map((t) => (
-                        <div className="row" key={t.number}>
+                        <div className="row" key={`${t.repo}#${t.number}`}>
                           <span className="when">{`#${t.number}`}</span>
-                          <span className="what"><Link href={`/task/${t.number}`}>{t.title}</Link></span>
+                          <span className="what"><Link href={t.href}>{t.title}</Link></span>
                           <span className="st pending">{`@${t.assignee}`}</span>
                         </div>
                       ))}
@@ -148,12 +145,12 @@ export default async function AnalyticsPage() {
                 </p>
               ) : (
                 a.stalled.map((t) => (
-                  <div className="row" key={t.number}>
+                  <div className="row" key={`${t.repo}#${t.number}`}>
                     <span className="when">
                       {t.days === null ? "never moved" : `${t.days}d quiet`}
                     </span>
                     <span className="what">
-                      <Link href={`/task/${t.number}`}>{`#${t.number} ${t.title}`}</Link>
+                      <Link href={t.href}>{list.length > 1 ? `${t.repo}#${t.number} ${t.title}` : `#${t.number} ${t.title}`}</Link>
                       <span className="muted small">{` · ${stageLabel(t.stage)}`}</span>
                     </span>
                     <span className="st pending">{t.assignee ? `@${t.assignee}` : "unassigned"}</span>

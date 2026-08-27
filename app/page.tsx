@@ -31,13 +31,16 @@ const OWNER_ONLY = [
 export default function Dashboard() {
   const [me, setMe] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
-  const [repo, setRepo] = useState("");
+  const [repos, setRepos] = useState<any[]>([]);
   // How many GitHub events the platform has on record for these tasks. Zero and
   // "nothing has happened yet" look identical on the board — a wall of 10% bars
   // — so the count is read rather than inferred.
   const [events, setEvents] = useState<number | null>(null);
-  const [picked, setPicked] = useState<number | null>(null);
+  // The whole task, not just its number: issue #1 exists in every repository,
+  // so a number alone cannot say which one an agent should be sent to.
+  const [picked, setPicked] = useState<any>(null);
   const [runs, setRuns] = useState<Record<string, any>>({});
+  const [taking, setTaking] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -62,7 +65,7 @@ export default function Dashboard() {
 
       const t = await res.json();
       if (t.error) setErr(t.error);
-      else { setTasks(t.tasks); setRepo(t.repo); setEvents(t.events_recorded ?? null); }
+      else { setTasks(t.tasks); setRepos(t.repos ?? []); setEvents(t.events_recorded ?? null); }
     } catch (e: any) {
       setErr(e.message);
     } finally {
@@ -70,16 +73,41 @@ export default function Dashboard() {
     }
   }
 
-  async function run(agent: string) {
-    if (picked == null) { setErr("Pick a task first — an agent with no issue has nothing to work from."); return; }
+  // Taking a task from the board, without opening it first. This is the normal
+  // way work starts: you see something nobody has, and you put your name on it.
+  async function take(t: any) {
+    setTaking(`${t.repo}#${t.number}`);
     setErr("");
-    const key = `${agent}-${picked}`;
+    try {
+      const res = await fetch(`/api/tasks/${t.repo}/${t.number}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assign", to: me?.login ?? null }),
+      });
+      if (!res.headers.get("content-type")?.includes("json")) {
+        setErr("Your session has expired. Reload the page to sign in again.");
+        return;
+      }
+      const out = await res.json();
+      if (!res.ok) { setErr(out.error); return; }
+      await load();
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setTaking("");
+    }
+  }
+
+  async function run(agent: string) {
+    if (!picked) { setErr("Pick a task first — an agent with no issue has nothing to work from."); return; }
+    setErr("");
+    const key = `${agent}-${picked.repo}#${picked.number}`;
     setRuns((r) => ({ ...r, [key]: { status: "starting" } }));
 
     const res = await fetch("/api/agents/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent, repo, issue: picked }),
+      body: JSON.stringify({ agent, repo: picked.repo, issue: picked.number }),
     });
     const data = await res.json();
 
@@ -103,7 +131,13 @@ export default function Dashboard() {
       <header className="top">
         <div>
           <h1>iHelp Ops</h1>
-          <p className="sub">{repo || "—"}</p>
+          <p className="sub">
+            {repos.length === 0
+              ? "—"
+              : repos.length === 1
+              ? repos[0].repo
+              : `${repos.length} repositories · ${tasks.length} open`}
+          </p>
           <Nav current="board" />
         </div>
         {me && (
@@ -148,36 +182,64 @@ export default function Dashboard() {
             answer, and it is rendered above. */}
         {!loading && !err && tasks.length === 0 && (
           <p className="muted">
-            {repo ? `No open issues in ${repo}.` : "No open issues."}{" "}
-            Open one on GitHub and it appears here.
+            No open issues in {repos.length === 1 ? repos[0].repo : "any configured repository"}.
+            {" "}Open one on GitHub and it appears here.
           </p>
         )}
-        <div className="tasks">
-          {tasks.map((t) => (
-            /* Two separate targets, deliberately. Clicking the row picks the
-               task for an agent to work on; the link opens it. One control
-               doing both would mean you could not select a task without
-               leaving the page you were selecting it on. */
-            <div key={t.number} className={"task" + (picked === t.number ? " on" : "")}>
-              <button
-                className="tsel"
-                onClick={() => setPicked(picked === t.number ? null : t.number)}
-              >
-                <div className="trow">
-                  <span className="num">#{t.number}</span>
-                  <span className="title">{t.title}</span>
-                  <span className="pct">{t.progress}%</span>
-                </div>
-                <div className="bar"><i style={{ width: `${t.progress}%` }} /></div>
-                <div className="meta">
-                  {t.assignee ? `@${t.assignee}` : "unassigned"}
-                  {t.labels.length ? " · " + t.labels.join(", ") : ""}
-                </div>
-              </button>
-              <Link className="open" href={`/task/${t.number}`}>Open</Link>
+
+        {/* A repository that could not be read says so beside its own name.
+            Folding it into the list would show an empty repo as a quiet one. */}
+        {repos.filter((r) => r.error).map((r) => (
+          <div className="notice" key={r.repo}>
+            <b>{r.repo}</b> could not be read, so its tasks are missing from this
+            board — that is a failure to reach GitHub, not an empty backlog.{" "}
+            <span className="muted small">{r.error}</span>
+          </div>
+        ))}
+
+        {repos.filter((r) => !r.error).map((r) => {
+          const mine = tasks.filter((t) => t.repo === r.repo);
+          return (
+            <div key={r.repo}>
+              {repos.length > 1 && (
+                <p className="repo-head">{`${r.repo} · ${mine.length} open`}</p>
+              )}
+              <div className="tasks">
+                {mine.length === 0 && <p className="muted small">Nothing open here.</p>}
+                {mine.map((t) => {
+                  const on = picked?.repo === t.repo && picked?.number === t.number;
+                  const isMine = me?.login && t.assignee?.toLowerCase() === me.login.toLowerCase();
+                  return (
+                    /* Two separate targets, deliberately. Clicking the row picks
+                       the task for an agent to work on; the link opens it. One
+                       control doing both would mean you could not select a task
+                       without leaving the page you were selecting it on. */
+                    <div key={`${t.repo}#${t.number}`} className={"task" + (on ? " on" : "")}>
+                      <button className="tsel" onClick={() => setPicked(on ? null : t)}>
+                        <div className="trow">
+                          <span className="num">{`#${t.number}`}</span>
+                          <span className="title">{t.title}</span>
+                          <span className="pct">{`${t.progress}%`}</span>
+                        </div>
+                        <div className="bar"><i style={{ width: `${t.progress}%` }} /></div>
+                        <div className="meta">
+                          {t.assignee ? `@${t.assignee}${isMine ? " · you" : ""}` : "nobody has taken this"}
+                          {t.labels.length ? " · " + t.labels.join(", ") : ""}
+                        </div>
+                      </button>
+                      {!t.assignee && me?.login && (
+                        <button className="take" disabled={!!taking} onClick={() => take(t)}>
+                          {taking === `${t.repo}#${t.number}` ? "…" : "Take it"}
+                        </button>
+                      )}
+                      <Link className="open" href={t.href}>Open</Link>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
         <p className="muted small">
           Progress is derived from GitHub events — branch, commits, PR, review, merge.
           Nobody types a percentage.
@@ -185,7 +247,7 @@ export default function Dashboard() {
       </section>
 
       <section>
-        <h2>Agents {picked != null && <span className="on-task">→ working on #{picked}</span>}</h2>
+        <h2>Agents {picked && <span className="on-task">{` → working on ${picked.repo}#${picked.number}`}</span>}</h2>
         <div className="grid">
           {AGENTS.map((a) => {
             // A linked GitHub login is required, not merely encouraged. Work
@@ -195,7 +257,7 @@ export default function Dashboard() {
             const allowed =
               signedIn && !!me.login &&
               (isLead || TIER_RANK[a.tier as keyof typeof TIER_RANK] <= rank);
-            const key = `${a.id}-${picked}`;
+            const key = `${a.id}-${picked ? picked.repo + "#" + picked.number : ""}`;
             const r = runs[key];
             return (
               <div key={a.id} className={"agent" + (allowed ? "" : " off")}>
@@ -247,6 +309,10 @@ export default function Dashboard() {
         ${BASE_CSS}
         ${NAV_CSS}
         .tasks { display: flex; flex-direction: column; gap: 8px; }
+        .repo-head { font-family: ui-monospace, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #4FD1C5; margin: 22px 0 8px; }
+        .take { flex: none; background: none; color: #4FD1C5; border: 1px solid #26343F; border-radius: 2px; padding: 5px 9px; font-size: 11px; font-family: ui-monospace, monospace; cursor: pointer; }
+        .take:hover { border-color: #4FD1C5; }
+        .take:disabled { opacity: .5; cursor: not-allowed; }
         .task { display: flex; align-items: center; gap: 12px; background: #151F2A; border: 1px solid #26343F; border-left: 3px solid #26343F; border-radius: 2px; padding: 11px 13px; }
         .task:hover { border-color: #4FD1C5; }
         .tsel { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; font: inherit; }

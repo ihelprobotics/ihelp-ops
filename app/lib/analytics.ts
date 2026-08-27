@@ -17,12 +17,13 @@
 import { sql } from "@/lib/db";
 import { ghFetch, expectList } from "@/app/lib/github";
 import { stageOf, branchIsForTask, STAGE } from "@/app/lib/progress";
+import { taskHref } from "@/app/lib/repos";
 
 /** A task with no artifact for this many days is worth asking about. */
 export const STALL_DAYS = 3;
 
 export type Analytics = {
-  repo: string;
+  repos: string[];
   /** Zero means the webhook has never delivered. Not a quiet fortnight. */
   eventsRecorded: number;
   cycle: { n: number; median: number | null; slowest: number | null };
@@ -32,9 +33,9 @@ export type Analytics = {
     open: number;
     assigned: number;
     /** Assigned to somebody, with no branch, commit or pull request behind it. */
-    assignedNoArtifact: { number: number; title: string; assignee: string }[];
+    assignedNoArtifact: { repo: string; number: number; title: string; assignee: string; href: string }[];
   } | null;
-  stalled: { number: number; title: string; assignee: string | null; stage: number; days: number | null }[] | null;
+  stalled: { repo: string; number: number; title: string; assignee: string | null; stage: number; days: number | null; href: string }[] | null;
   /** Why the two GitHub-backed sections are null, when they are. */
   liveError: string | null;
   people: { login: string; merged: number; agentAuthored: number }[];
@@ -43,16 +44,16 @@ export type Analytics = {
   spend: { total: number; runs: number };
 };
 
-export async function loadAnalytics(repo: string): Promise<Analytics> {
+export async function loadAnalytics(list: string[]): Promise<Analytics> {
   const [events, cycle, review, rework, people, costByAgent, costByPerson, spend, activity] =
     await Promise.all([
-      sql<{ n: number }[]>`select count(*)::int as n from gh_event where repo = ${repo}`,
+      sql<{ n: number }[]>`select count(*)::int as n from gh_event where repo = any(${list})`,
 
       sql<any[]>`
         select count(*)::int as n,
                round(percentile_cont(0.5) within group (order by hours)::numeric, 1) as median,
                round(max(hours)::numeric, 1) as slowest
-          from cycle_time where repo = ${repo}`,
+          from cycle_time where repo = any(${list})`,
 
       // A pull request with no approval yet is not a fast review, it is an
       // unfinished one — counted separately rather than folded into the median.
@@ -61,14 +62,14 @@ export async function loadAnalytics(repo: string): Promise<Analytics> {
                count(*) filter (where approved_at is null)::int     as waiting,
                round((percentile_cont(0.5) within group (order by hours)
                       filter (where hours is not null))::numeric, 1) as median
-          from review_latency where repo = ${repo}`,
+          from review_latency where repo = any(${list})`,
 
       // Rework: a task that was merged and then needed more commits. Not a
       // measure of sloppiness — it is a measure of how often "done" was not.
       sql<any[]>`
-        select (select count(*) from cycle_time where repo = ${repo})::int as merged,
+        select (select count(*) from cycle_time where repo = any(${list}))::int as merged,
                (select count(*) from cycle_time c
-                 where c.repo = ${repo}
+                 where c.repo = any(${list})
                    and exists (select 1 from commit_event e
                                 where e.repo = c.repo and e.issue_number = c.issue_number
                                   and e.committed_at > c.merged_at))::int as reworked`,
@@ -81,7 +82,7 @@ export async function loadAnalytics(repo: string): Promise<Analytics> {
                count(*)::int                              as merged,
                count(*) filter (where agent_authored)::int as agent_authored
           from gh_event
-         where repo = ${repo} and kind = 'pr_merged'
+         where repo = any(${list}) and kind = 'pr_merged'
            and payload->'pull_request'->'user'->>'login' is not null
          group by 1 order by merged desc, login limit 50`,
 
@@ -89,29 +90,30 @@ export async function loadAnalytics(repo: string): Promise<Analytics> {
         select agent, count(*)::int as runs,
                count(*) filter (where status = 'failure')::int as failed,
                coalesce(sum(cost_usd), 0)::float as cost
-          from agent_run where repo = ${repo} group by agent order by cost desc`,
+          from agent_run where repo = any(${list}) group by agent order by cost desc`,
 
       sql<any[]>`
         select u.name, count(*)::int as runs, coalesce(sum(r.cost_usd), 0)::float as cost
           from agent_run r left join app_user u on u.id = r.requester_id
-         where r.repo = ${repo} group by u.name order by cost desc`,
+         where r.repo = any(${list}) group by u.name order by cost desc`,
 
       sql<any[]>`
         select coalesce(sum(cost_usd), 0)::float as total, count(*)::int as runs
-          from agent_run where repo = ${repo}`,
+          from agent_run where repo = any(${list})`,
 
       // The last time anything happened against each task, from either source.
-      sql<{ number: number; last_at: string }[]>`
-        select number, max(at) as last_at from (
-          select number, occurred_at as at from gh_event where repo = ${repo} and number is not null
+      sql<{ repo: string; number: number; last_at: string }[]>`
+        select repo, number, max(at) as last_at from (
+          select repo, number, occurred_at as at from gh_event
+           where repo = any(${list}) and number is not null
           union all
-          select issue_number as number, committed_at as at from commit_event
-           where repo = ${repo} and issue_number is not null
-        ) t group by number`,
+          select repo, issue_number as number, committed_at as at from commit_event
+           where repo = any(${list}) and issue_number is not null
+        ) t group by repo, number`,
     ]);
 
   const base = {
-    repo,
+    repos: list,
     eventsRecorded: events[0].n,
     cycle: {
       n: cycle[0].n,
@@ -136,46 +138,64 @@ export async function loadAnalytics(repo: string): Promise<Analytics> {
   // page down, and it never reports "nothing is stalled".
   // ---------------------------------------------------------------------
   try {
-    const [issuesRes, branchesRes] = await Promise.all([
-      ghFetch(`/repos/${repo}/issues?state=open&per_page=100`),
-      ghFetch(`/repos/${repo}/branches?per_page=100`),
-    ]);
-    const issues = expectList(issuesRes.body, "issues").filter((i: any) => !i.pull_request);
-    const branches: string[] = expectList(branchesRes.body, "branches").map((b: any) => b.name);
+    // Every repository, each read independently. One of them failing takes the
+    // whole live section down on purpose here — a "stalled" list computed from
+    // three repositories out of four would be quietly wrong, and quietly wrong
+    // is worse on a page people use to decide who to talk to.
+    const perRepo = await Promise.all(
+      list.map(async (repo) => {
+        const [issuesRes, branchesRes] = await Promise.all([
+          ghFetch(`/repos/${repo}/issues?state=open&per_page=100`),
+          ghFetch(`/repos/${repo}/branches?per_page=100`),
+        ]);
+        return {
+          repo,
+          issues: expectList(issuesRes.body, "issues").filter((i: any) => !i.pull_request),
+          branches: expectList(branchesRes.body, "branches").map((b: any) => b.name as string),
+        };
+      })
+    );
 
-    const numbers = issues.map((i: any) => i.number);
+    const numbers = perRepo.flatMap((p) => p.issues.map((i: any) => i.number));
     const [kinds, commits] = numbers.length
       ? await Promise.all([
-          sql<{ kind: string; number: number }[]>`
-            select kind, number from gh_event where repo = ${repo} and number = any(${numbers})`,
-          sql<{ issue_number: number }[]>`
-            select distinct issue_number from commit_event
-             where repo = ${repo} and issue_number = any(${numbers})`,
+          sql<{ kind: string; repo: string; number: number }[]>`
+            select kind, repo, number from gh_event where repo = any(${list}) and number = any(${numbers})`,
+          sql<{ repo: string; issue_number: number }[]>`
+            select distinct repo, issue_number from commit_event
+             where repo = any(${list}) and issue_number = any(${numbers})`,
         ])
       : [[], []];
 
-    const committed = new Set(commits.map((c) => c.issue_number));
-    const lastAt = new Map(activity.map((a) => [a.number, new Date(a.last_at).getTime()]));
+    const committed = new Set(commits.map((c) => `${c.repo}#${c.issue_number}`));
+    // Keyed by repository too. Issue #1 exists everywhere, so a bare number
+    // would take one repo's last activity as another's and hide a stall.
+    const lastAt = new Map(activity.map((a) => [`${a.repo}#${a.number}`, new Date(a.last_at).getTime()]));
     const now = Date.now();
 
-    const rows = issues.map((i: any) => {
-      const stage = stageOf({
-        kinds: kinds.filter((k) => k.number === i.number).map((k) => k.kind),
-        hasCommit: committed.has(i.number),
-        hasBranch: branches.some((b) => branchIsForTask(b, i.number)),
-      });
-      const last = lastAt.get(i.number) ?? null;
-      return {
-        number: i.number as number,
-        title: i.title as string,
-        assignee: (i.assignee?.login ?? null) as string | null,
-        stage,
-        // Days since the last artifact. Null when there has never been one —
-        // a different situation from "it went quiet", and shown as such.
-        days: last === null ? null : Math.floor((now - last) / 86400000),
-        openedDays: Math.floor((now - new Date(i.created_at).getTime()) / 86400000),
-      };
-    });
+    const rows = perRepo.flatMap((p) =>
+      p.issues.map((i: any) => {
+        const key = `${p.repo}#${i.number}`;
+        const stage = stageOf({
+          kinds: kinds.filter((k) => k.repo === p.repo && k.number === i.number).map((k) => k.kind),
+          hasCommit: committed.has(key),
+          hasBranch: p.branches.some((b) => branchIsForTask(b, i.number)),
+        });
+        const last = lastAt.get(key) ?? null;
+        return {
+          repo: p.repo,
+          number: i.number as number,
+          title: i.title as string,
+          assignee: (i.assignee?.login ?? null) as string | null,
+          href: taskHref(p.repo, i.number),
+          stage,
+          // Days since the last artifact. Null when there has never been one —
+          // a different situation from "it went quiet", and shown as such.
+          days: last === null ? null : Math.floor((now - last) / 86400000),
+          openedDays: Math.floor((now - new Date(i.created_at).getTime()) / 86400000),
+        };
+      })
+    );
 
     const assigned = rows.filter((r) => r.assignee);
 
@@ -189,12 +209,12 @@ export async function loadAnalytics(repo: string): Promise<Analytics> {
         // it, and there is not one artifact to show for it.
         assignedNoArtifact: assigned
           .filter((r) => r.stage <= STAGE.opened)
-          .map((r) => ({ number: r.number, title: r.title, assignee: r.assignee as string })),
+          .map((r) => ({ repo: r.repo, number: r.number, title: r.title, assignee: r.assignee as string, href: r.href })),
       },
       stalled: rows
         .filter((r) => (r.days === null ? r.openedDays >= STALL_DAYS : r.days >= STALL_DAYS))
         .sort((a, b) => (b.days ?? b.openedDays) - (a.days ?? a.openedDays))
-        .map(({ number, title, assignee, stage, days }) => ({ number, title, assignee, stage, days })),
+        .map(({ repo, number, title, assignee, stage, days, href }) => ({ repo, number, title, assignee, stage, days, href })),
     };
   } catch (e: any) {
     return {
