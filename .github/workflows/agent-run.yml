@@ -297,6 +297,12 @@ jobs:
           COST: ${{ steps.usage.outputs.cost }}
         run: |
           set -euo pipefail
+
+          # Money, printed as money. The raw value is a float from the usage
+          # report, and /usr/bin/bash.31096504999999997 on a pull request reads as a bug in
+          # the thing that wrote it.
+          COST_FMT=$(printf '%.4f' "${COST:-0}" 2>/dev/null || echo "${COST:-0}")
+
           git add -A
           # Separate -m flags become separate paragraphs. The last one is the
           # trailer commit_event.issue_number is parsed from.
@@ -323,7 +329,7 @@ jobs:
             printf -- '---\n\n'
             printf "Platform run: \`%s\`\n" "$RUN_ID"
             if [ -n "${COST:-}" ]; then
-              printf '\nCost: $%s\n' "$COST"
+              printf '\nCost: $%s\n' "$COST_FMT"
             fi
           } > "$RUNNER_TEMP/pr-body.md"
 
@@ -334,7 +340,7 @@ jobs:
           # spend appears nowhere a human reading the pull request would see it.
           if EXISTING=$(gh pr view "$BRANCH" --json url,state -q 'select(.state=="OPEN") | .url') && [ -n "$EXISTING" ]; then
             echo "Pull request already open for $BRANCH: $EXISTING"
-            gh pr comment "$EXISTING" --body "$(printf 'Another **%s** run for @%s pushed to this branch.\n\nPlatform run: `%s`\nCost: $%s' "$AGENT" "$REQUESTER" "$RUN_ID" "${COST:-0}")"
+            gh pr comment "$EXISTING" --body "$(printf 'Another **%s** run for @%s pushed to this branch.\n\nPlatform run: `%s`\nCost: $%s' "$AGENT" "$REQUESTER" "$RUN_ID" "$COST_FMT")"
             echo "url=$EXISTING" >> "$GITHUB_OUTPUT"
           else
             gh pr create \

@@ -14,17 +14,51 @@ install, and using the thing for a week.
 
 ## Start here tomorrow
 
-1. **Push a commit on a real task branch.** Everything else in Test 5 is proven;
-   this is the last rung nobody has watched climb with real GitHub deliveries.
-   Start a task from `/task/<n>`, commit with `core.hooksPath` set, push, and
-   watch the board move to 40% on its own.
+Nothing on this list is code. Every phase is built, tested and live.
 
-2. **Install the Vercel GitHub App** on `ihelprobotics` and connect the project.
+1. **Install the Vercel GitHub App** on `ihelprobotics` and connect the project.
    Until then every deploy needs the git remote temporarily detached (see
    *Known* below), and every deploy is a slow upload rather than a 35-second
    git build.
 
-3. **Rotate the secrets that sat in the client's Vercel account.** See *Blocking*.
+2. **Rotate the secrets that sat in the client's Vercel account.** See *Blocking*.
+
+3. **Merge or close PR #2.** It now carries three commits and two scribe runs.
+   A human in CODEOWNERS owns that call.
+
+---
+
+## Proven live, end to end
+
+**The agent loop, twice fixed and then watched working.** Run `ad2db36b`,
+dispatched through the production platform by the founder:
+
+- The branch `agent/scribe/issue-1` already existed, and was **resumed** rather
+  than recreated. Every previous re-run died here.
+- PR #2 already existed, so it was **commented** rather than duplicated:
+  "Another scribe run for @ammusharaff pushed to this branch."
+- `agent_run` records `success`, PR #2, **$0.3110**, 3241 in / 2672 out.
+
+**Test 5, rung by rung, with GitHub doing the delivering.** The agent's push
+arrived through the webhook as `commit_event` `f263b4c` on
+`agent/scribe/issue-1`, carrying `issue_number = 1` from the trailer the
+workflow writes. **Task #1 moved from 20% to 40% with nobody touching the
+platform.**
+
+It stops at 40% and that is correct: PR #2 was opened on 25 August, before the
+webhook existed, so no `pr_opened` event was ever recorded for it. The ladder
+reports what happened, not what is true in GitHub today — which is the honest
+answer, and the reason the next task opened will climb the whole way.
+
+**Phase 7 acceptance.** The digest ran for real: it found six commits against
+the founder, named Ayeesha as the one person with nothing recorded, reported
+nobody on leave, and sent. Run a second time in the same day it sent nothing —
+`notification_log` holds exactly one nudge row for her, refused by the
+`nudge_once_per_day` index rather than by the sender remembering.
+
+`MAIL_FROM` was `ops@ihelprobotics.com`, and the only domain verified in Resend
+is `ihelprobotics.org`. Every send would have been rejected. Corrected in
+`.env.local` and in Vercel.
 
 ---
 
@@ -99,11 +133,11 @@ tomorrow's nudge is not silently suppressed.
 
 | | |
 |---|---|
-| `RESEND_API_KEY` and `DIGEST_TO` are empty | The digest computes correctly and cannot send. This is the last thing between Phase 7 and done |
 | Secrets exposed in the client's Vercel account | `DATABASE_URL`, `GH_DISPATCH_TOKEN`, `AUTH_SECRET`, `AUTH_GOOGLE_SECRET`, `AGENT_CALLBACK_SECRET`, `GH_WEBHOOK_SECRET`, `CRON_SECRET`. Deleting that project does not un-expose them — rotate |
 | Vercel cannot see the repo | Deploys need the remote detached, and take twenty minutes instead of forty seconds |
-| `GH_DISPATCH_TOKEN` cannot read check runs | 403 on `/check-runs`. A fine-grained token needs **Checks: read**. The task page says so rather than guessing |
-| An Agent run failed today at 12:24 UTC | Manually dispatched on `main`. Not investigated |
+| `GH_DISPATCH_TOKEN` cannot read check runs | 403 on `/check-runs`. Being replaced with a classic token carrying `repo`. The task page names the missing permission rather than guessing about CI |
+| `GH_DISPATCH_TOKEN` expires 23 Sep 2026 | When it does, the board, task pages, agent dispatch and the digest all stop at once, with no warning first |
+| The Reviewer needs manual approval to run | Its workflow sits at `action_required` on the agent's branch, so the 75% rung cannot be reached on that task |
 
 ---
 
@@ -137,13 +171,20 @@ tomorrow's nudge is not silently suppressed.
 
 ## Acceptance, against docs/09
 
-Tests 1–4 and 6 were proven earlier. Test 7's privacy assertions and its leave
-and nudge behaviour are proven by `test:rls` and `test:people`; its parts 3 and 4
-need mail to actually send.
+Tests 1–4 and 6 were proven earlier.
 
-Test 5 is proven at every level the platform controls — 38 assertions covering
-the whole ladder, the numbering trap, `cycle_time` and `review_latency`. What
-remains is watching one real task climb it with GitHub doing the delivering.
+**Test 5** is proven at every level the platform controls — 38 assertions
+covering the whole ladder, the numbering trap, `cycle_time` and
+`review_latency` — and now also observed live: a real agent push moved task #1
+from 20% to 40% through the real webhook, with nobody touching the platform.
 
-Then stop building and use it for a week. The next thing to build is whatever
-the first intern gets stuck on — not whatever looks unfinished.
+**Test 7** is complete. Its privacy assertions hold under `test:rls` and
+`test:people`; its leave and nudge behaviour is proven both in the test suite
+and by two real digest runs, the second of which correctly sent nothing.
+
+**Test 8** — nothing is typed. There is no writable progress field anywhere and
+no hours anywhere, and `/analytics` says so on the page.
+
+That is Step 1 finished. Stop building and use it for a week. The next thing to
+build is whatever the first intern gets stuck on — not whatever looks
+unfinished.
