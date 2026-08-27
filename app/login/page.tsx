@@ -1,23 +1,56 @@
+// The first screen anybody sees, and the only one they see signed out.
+//
+// One sentence and one button. There is nothing to choose here — Google is the
+// only way in — so anything else on this page would be decoration in front of a
+// door.
+
 import { signIn } from "@/auth";
+import { BASE_CSS } from "@/app/ui/base-css";
 
 export default function Login() {
   return (
-    <main style={{ display: "grid", placeItems: "center", minHeight: "100vh",
-                   background: "#0E1620", color: "#DCE6ED",
-                   fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
-      <div style={{ textAlign: "center" }}>
-        <h1 style={{ fontSize: 20, marginBottom: 6 }}>iHelp Ops</h1>
-        <p style={{ color: "#78909F", fontSize: 13, marginBottom: 22 }}>
-          Sign in with your work Google account.
+    <main className="signin">
+      <div className="panel">
+        <h1>iHelp Ops</h1>
+        <p className="lede">
+          Where work is started, tracked and proven.
         </p>
-        <form action={async () => { "use server"; await signIn("google", { redirectTo: "/" }); }}>
-          <button style={{ background: "#4FD1C5", color: "#06231F", border: 0,
-                           borderRadius: 3, padding: "10px 20px", fontWeight: 600,
-                           fontSize: 13, cursor: "pointer" }}>
-            Continue with Google
-          </button>
+
+        <form
+          action={async () => {
+            "use server";
+            await signIn("google", { redirectTo: "/" });
+          }}
+        >
+          <button className="go">Continue with Google</button>
         </form>
+
+        <p className="foot">
+          Use your work Google account. Your account is created the first time
+          you sign in.
+        </p>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: LOGIN_CSS }} />
     </main>
   );
 }
+
+const LOGIN_CSS = `
+${BASE_CSS}
+  .signin {
+    min-height: 100vh; display: grid; place-items: center;
+    padding: 24px; background: var(--ground);
+  }
+  .panel {
+    background: var(--surface); border-radius: 18px; box-shadow: var(--shadow);
+    padding: 40px 36px; width: 100%; max-width: 380px; text-align: center;
+  }
+  .panel h1 { font-size: 28px; margin: 0 0 6px; }
+  .panel .lede { color: var(--ink-2); font-size: 15px; margin: 0 0 28px; }
+  .panel .go { width: 100%; min-height: 46px; font-size: 16px; }
+  .panel .foot {
+    color: var(--ink-3); font-size: 13px; line-height: 1.45;
+    margin: 20px 0 0; text-wrap: balance;
+  }
+`;

@@ -4,21 +4,22 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 
 <style>
-  /* Palette taken from the product itself — app/ui/base-css.ts. The guide and
-     the thing it describes should look like they come from the same place. */
+  /* The product's own tokens — app/ui/base-css.ts. The guide and the thing it
+     describes should look like they come from the same place, so these are the
+     same values rather than an approximation of them. */
   :root {
-    --ground:  #F6F8F9;
+    --ground:  #F5F5F7;
     --surface: #FFFFFF;
-    --raised:  #EDF1F3;
-    --rule:    #D7E0E5;
-    --text:    #15212C;
-    --muted:   #5B6E7B;
-    --faint:   #8194A0;
-    --accent:  #0F7F76;
-    --accent-soft: #E2F2F0;
+    --raised:  #EFEFF3;
+    --rule:    #E4E4E9;
+    --text:    #1D1D1F;
+    --muted:   #6E6E73;
+    --faint:   #A0A0A6;
+    --accent:  #12736C;
+    --accent-soft: #EAF4F2;
     --amber:   #8A5A12;
-    --amber-soft: #F7EEDF;
-    --shadow:  0 1px 2px rgba(21, 33, 44, .06);
+    --amber-soft: #FDF4E6;
+    --shadow:  0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.03);
   }
   :root:not([data-theme="light"]) { }
   @media (prefers-color-scheme: dark) {
@@ -247,15 +248,35 @@
   </section>
 
   <section>
-    <h2>The five screens</h2>
+    <h2>The screens</h2>
     <dl class="rows">
       <div class="row"><dt>Board</dt><dd>Every open task across every repository, and how far each has really got</dd></div>
       <div class="row"><dt>Team</dt><dd>Who’s on which pod, what they have open, who’s away today</dd></div>
       <div class="row"><dt>Leave</dt><dd>Book time off, see your balance, approve your team’s requests</dd></div>
       <div class="row"><dt>Me</dt><dd>Your goals, your 1:1 notes, feedback about you, what you’ve shipped</dd></div>
       <div class="row"><dt>Analytics</dt><dd>How work is flowing across the whole team</dd></div>
+      <div class="row"><dt>Admin</dt><dd>Accounts, roles and agent tiers. Only the CTO and the founder see this one</dd></div>
     </dl>
-    <p>The board covers <strong>all</strong> our repositories, not just one. Where there is more than one, tasks are grouped under the repository they belong to — and a task&rsquo;s address carries it, like <code>/task/ihelprobotics/ihelp-ops/42</code>. Issue numbers restart in every repository, so &ldquo;#1&rdquo; on its own does not say which piece of work you mean.</p>
+    <p>The board covers <strong>every repository the company has</strong>, including ones created after you read this — it reads the list from GitHub rather than from a setting somebody has to remember to update. Tasks are grouped under the repository they belong to, and a task&rsquo;s address carries it, like <code>/task/ihelprobotics/ihelp-ops/42</code>. Issue numbers restart in every repository, so &ldquo;#1&rdquo; on its own does not say which piece of work you mean.</p>
+    <p>Repositories with nothing open are not listed &mdash; they are counted on one line at the bottom instead. Thirteen headings with &ldquo;nothing here&rdquo; under eleven of them buries the two tasks that matter.</p>
+  </section>
+
+<section>
+    <h2>Roles</h2>
+    <p class="lede">Four of them. Your role decides what you may do to <em>other people&rsquo;s</em> work and records — never what you may do to your own.</p>
+    <dl class="rows">
+      <div class="row"><dt>member</dt><dd>Take work, do it, run agents up to your tier, book your own leave. Where everybody starts</dd></div>
+      <div class="row"><dt>lead</dt><dd>All of that, plus assign work to people, approve their leave, and see their leave and nudges</dd></div>
+      <div class="row"><dt>cto</dt><dd>All of that for everybody &mdash; and the only role that can read a 1:1 it did not write</dd></div>
+      <div class="row"><dt>founder</dt><dd>All of a lead&rsquo;s reach across everybody, and any agent. Deliberately <em>not</em> able to read other people&rsquo;s 1:1 notes</dd></div>
+    </dl>
+    <p>Separately, an <strong>agent tier</strong> &mdash; <code>week1</code>, <code>week2</code> or <code>full</code> &mdash; decides which agents you can dispatch. It grows as you learn what good looks like here. Neither your role nor your tier is a judgement; both are a starting point.</p>
+    <div class="note">
+      <p><strong>The CTO reading a 1:1 is logged, and you see the log.</strong> It appears on your own page under &ldquo;who has read notes about you&rdquo;. That is what makes &ldquo;the CTO can read everything&rdquo; something you can live with rather than something you have to trust.</p>
+    </div>
+    <h3>Who changes a role</h3>
+    <p>The CTO and the founder, on the <strong>Admin</strong> screen &mdash; which only they can see. Nobody can change their own row, including them: a role change should be something a second person agreed to. The full table of what every role can do is on that screen, and each line names where it is enforced.</p>
+    <p>If someone new joins, they sign in with Google and appear there as a <code>member</code> on <code>week1</code> with no GitHub login. Setting that login is the thing that turns an account into somebody who can own work.</p>
   </section>
 
   <section>

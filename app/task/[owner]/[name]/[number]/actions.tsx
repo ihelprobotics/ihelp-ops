@@ -111,15 +111,15 @@ export default function TaskActions(props: Props) {
       {err && <div className="error">{err}</div>}
       {said && <p className="ok small">{said}</p>}
 
+      {/* Layout only. Buttons, inputs and messages take their appearance from
+          the shell in app/ui/base-css.ts — this component used to restate all
+          three in the old dark palette, which is how it ended up with a black
+          textarea on a white page after the redesign. A component that repaints
+          a shared control is a component that will be missed next time. */}
       <style jsx>{`
-        .acts { display: flex; flex-direction: column; gap: 10px; }
+        .acts { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
         .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .go { background: #4FD1C5; color: #06231F; border: 0; border-radius: 2px; padding: 8px 13px; font-weight: 600; font-size: 12px; cursor: pointer; font-family: inherit; }
-        .go:disabled { opacity: .5; cursor: not-allowed; }
-        .say { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-        textarea { width: 100%; background: #0E1620; color: #DCE6ED; border: 1px solid #26343F; border-radius: 2px; padding: 9px 11px; font: inherit; font-size: 13px; resize: vertical; }
-        textarea:focus { outline: none; border-color: #4FD1C5; }
-        .ok { color: #4FD1C5; margin: 0; }
+        .say { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; width: 100%; }
       `}</style>
     </div>
   );

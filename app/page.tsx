@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BASE_CSS } from "@/app/ui/base-css";
-import Nav, { NAV_CSS } from "@/app/ui/nav";
+import Nav from "@/app/ui/nav";
 import { isAdmin } from "@/app/lib/roles";
 
 /* Agent grid. Tier decides who may dispatch what — the same rule the API
@@ -198,7 +198,11 @@ export default function Dashboard() {
           </div>
         ))}
 
-        {repos.filter((r) => !r.error).map((r) => {
+        {/* Only repositories with work in them get a section. Thirteen headings
+            with "nothing open here" under eleven of them buries the two tasks
+            that matter — the empty ones are one quiet line at the bottom, which
+            is still an honest account of what was read. */}
+        {repos.filter((r) => !r.error && tasks.some((t) => t.repo === r.repo)).map((r) => {
           const mine = tasks.filter((t) => t.repo === r.repo);
           return (
             <div key={r.repo}>
@@ -206,7 +210,6 @@ export default function Dashboard() {
                 <p className="repo-head">{`${r.repo} · ${mine.length} open`}</p>
               )}
               <div className="tasks">
-                {mine.length === 0 && <p className="muted small">Nothing open here.</p>}
                 {mine.map((t) => {
                   const on = picked?.repo === t.repo && picked?.number === t.number;
                   const isMine = me?.login && t.assignee?.toLowerCase() === me.login.toLowerCase();
@@ -245,6 +248,22 @@ export default function Dashboard() {
           Progress is derived from GitHub events — branch, commits, PR, review, merge.
           Nobody types a percentage.
         </p>
+
+        {/* Named rather than merely omitted. "We read eleven repositories and
+            they were empty" and "we did not look" are different facts, and the
+            second is the one worth catching. */}
+        {(() => {
+          const quiet = repos.filter((r) => !r.error && !tasks.some((t) => t.repo === r.repo));
+          if (quiet.length === 0) return null;
+          return (
+            <details className="quiet">
+              <summary>
+                {`${quiet.length} other ${quiet.length === 1 ? "repository has" : "repositories have"} nothing open`}
+              </summary>
+              <p className="muted small">{quiet.map((r) => r.repo).join(" · ")}</p>
+            </details>
+          );
+        })()}
       </section>
 
       <section>
@@ -308,35 +327,108 @@ export default function Dashboard() {
 
       <style jsx global>{`
         ${BASE_CSS}
-        ${NAV_CSS}
-        .tasks { display: flex; flex-direction: column; gap: 8px; }
-        .repo-head { font-family: ui-monospace, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #4FD1C5; margin: 22px 0 8px; }
-        .take { flex: none; background: none; color: #4FD1C5; border: 1px solid #26343F; border-radius: 2px; padding: 5px 9px; font-size: 11px; font-family: ui-monospace, monospace; cursor: pointer; }
-        .take:hover { border-color: #4FD1C5; }
-        .take:disabled { opacity: .5; cursor: not-allowed; }
-        .task { display: flex; align-items: center; gap: 12px; background: #151F2A; border: 1px solid #26343F; border-left: 3px solid #26343F; border-radius: 2px; padding: 11px 13px; }
-        .task:hover { border-color: #4FD1C5; }
-        .tsel { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; font: inherit; }
-        .open { flex: none; font-size: 11px; font-family: ui-monospace, monospace; text-decoration: none; border: 1px solid #26343F; border-radius: 2px; padding: 5px 9px; }
-        .open:hover { border-color: #4FD1C5; }
-        .task.on { border-left-color: #4FD1C5; background: #1B2733; }
+
+        /* A repository heading. Only shown when there is more than one, so it
+           never labels a list of one thing. */
+        .repo-head {
+          font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+          color: var(--ink-3); margin: 26px 0 8px; padding: 0 4px;
+        }
+
+        /* The task list is one card, rows inside it — the same grouped-list
+           shape as every other screen, so the board is not its own dialect. */
+        .tasks {
+          background: var(--surface); border-radius: var(--radius);
+          box-shadow: var(--shadow); overflow: hidden;
+        }
+        .tasks > p { margin: 0; padding: 14px 16px; }
+
+        .task {
+          display: flex; align-items: center; gap: 10px;
+          padding: 12px 16px; border-top: 1px solid var(--line-soft);
+          transition: background .15s ease;
+        }
+        .task:first-child { border-top: 0; }
+        .task:hover { background: var(--sunken); }
+        .task.on { background: var(--accent-bg); }
+
+        .tsel {
+          flex: 1; min-width: 0; text-align: left; background: none; border: 0;
+          padding: 0; cursor: pointer; color: inherit; font: inherit;
+        }
         .trow { display: flex; gap: 10px; align-items: baseline; }
-        .num { font-family: ui-monospace, monospace; color: #78909F; font-size: 12px; }
-        .title { flex: 1; font-weight: 500; }
-        .pct { font-family: ui-monospace, monospace; font-size: 12px; color: #4FD1C5; }
-        .meta { font-size: 11px; color: #4E6472; font-family: ui-monospace, monospace; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
-        .agent { background: #151F2A; border: 1px solid #26343F; border-radius: 2px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
-        .agent b { font-size: 13px; }
-        .agent span { font-size: 11px; color: #78909F; }
-        .agent.off { opacity: .5; }
-        .go { margin-top: 4px; background: #4FD1C5; color: #06231F; border: 0; border-radius: 2px; padding: 7px; font-weight: 600; font-size: 12px; cursor: pointer; font-family: inherit; }
-        .go:disabled { opacity: .5; cursor: not-allowed; }
-        .lock { color: #4E6472 !important; font-family: ui-monospace, monospace; }
-        .on-task { color: #4FD1C5; text-transform: none; letter-spacing: 0; }
-        .run { background: #151F2A; border-left: 3px solid #4FD1C5; padding: 11px 13px; margin-bottom: 8px; border-radius: 2px; }
-        .run b { font-family: ui-monospace, monospace; font-size: 12px; }
-        .run p { margin: 5px 0 0; font-size: 13px; }
+        .num { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
+        .title { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pct { font-size: 13px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; flex: none; }
+        .meta { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+
+        .take {
+          flex: none; background: var(--accent); color: #fff; border: 0;
+          border-radius: 100px; padding: 7px 14px; min-height: 34px;
+          font-size: 13px; font-weight: 600; cursor: pointer;
+          transition: background .15s ease, transform .1s ease;
+        }
+        .take:hover:not(:disabled) { background: var(--accent-ink); }
+        .take:active:not(:disabled) { transform: scale(.97); }
+        .take:disabled { opacity: .4; cursor: not-allowed; }
+
+        .open {
+          flex: none; font-size: 14px; color: var(--accent); text-decoration: none;
+          padding: 6px 2px 6px 8px; display: flex; align-items: center;
+        }
+        .open:hover { text-decoration: none; }
+        /* The chevron a phone puts on a row that opens something. */
+        .open::after {
+          content: ""; width: 7px; height: 7px; margin-left: 8px;
+          border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3);
+          transform: rotate(-45deg);
+        }
+
+        /* A disclosure, closed by default. Native <details>, so it needs no
+           JavaScript and behaves the way the reader's browser already does. */
+        .quiet { margin-top: 14px; }
+        .quiet summary {
+          font-size: 13px; color: var(--ink-2); cursor: pointer; padding: 6px 4px;
+          list-style: none; min-height: 32px; display: flex; align-items: center; gap: 6px;
+        }
+        .quiet summary::-webkit-details-marker { display: none; }
+        .quiet summary::before {
+          content: ; width: 6px; height: 6px; flex: none;
+          border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3);
+          transform: rotate(-45deg); transition: transform .15s ease;
+        }
+        .quiet[open] summary::before { transform: rotate(45deg); }
+        .quiet summary:hover { color: var(--ink); }
+        .quiet p { margin: 2px 0 0 16px; line-height: 1.7; }
+
+        /* ---- agents ---- */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+        .agent {
+          background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+          padding: 14px; display: flex; flex-direction: column; gap: 5px;
+          transition: box-shadow .15s ease;
+        }
+        .agent:hover { box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+        .agent b { font-size: 15px; font-weight: 600; }
+        .agent > span { font-size: 13px; color: var(--ink-2); }
+        .agent.off { opacity: .55; box-shadow: none; background: transparent; border: 1px solid var(--line); }
+        .agent.off:hover { box-shadow: none; }
+        .agent .go { margin-top: 6px; }
+        .lock { color: var(--ink-3) !important; font-size: 12px !important; }
+        .on-task { color: var(--accent); font-weight: 500; }
+
+        /* ---- runs ---- */
+        .run {
+          background: var(--accent-bg); border-radius: var(--radius);
+          padding: 13px 15px; margin-bottom: 8px;
+        }
+        .run b { font-size: 14px; font-weight: 600; }
+        .run p { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
+
+        @media (max-width: 640px) {
+          .task { flex-wrap: wrap; }
+          .tsel { flex-basis: 100%; }
+        }
       `}</style>
     </main>
   );

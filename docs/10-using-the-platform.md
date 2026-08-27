@@ -47,7 +47,7 @@ one, and dispatching an agent.
 
 ---
 
-## The five screens
+## The screens
 
 | Screen | What it's for |
 |---|---|
@@ -56,13 +56,54 @@ one, and dispatching an agent.
 | **Leave** | Book time off, see your balance, approve your team's requests |
 | **Me** | Your goals, your 1:1 notes, feedback about you, what you've shipped |
 | **Analytics** | How work is flowing across the whole team |
+| **Admin** | Accounts, roles and agent tiers. Only the CTO and the founder see this |
 
-The board covers **all** our repositories, not just one. When there's more than
-one, tasks are grouped under the repository they belong to.
+The board covers **every repository the company has**, including ones created
+after you read this — it reads the list from GitHub rather than a setting
+somebody has to remember to update. Tasks are grouped under the repository they
+belong to.
+
+Repositories with nothing open aren't listed; they're counted on one line at the
+bottom. Thirteen headings with "nothing here" under eleven of them buries the two
+tasks that matter.
 
 That's also why a task's address has the repository in it —
 `/task/ihelprobotics/ihelp-ops/42`. Issue numbers restart in every repository, so
 "#1" on its own doesn't say which piece of work you mean.
+
+---
+
+## Roles
+
+Four of them. Your role decides what you may do to **other people's** work and
+records — never what you may do to your own.
+
+| Role | What it adds |
+|---|---|
+| **member** | Take work, do it, run agents up to your tier, book your own leave. Where everybody starts |
+| **lead** | Plus: assign work to people, approve their leave, see their leave and nudges |
+| **cto** | Plus: all of that for everybody — and the only role that can read a 1:1 it did not write |
+| **founder** | A lead's reach across everybody, and any agent. Deliberately *not* able to read other people's 1:1 notes |
+
+Separately, an **agent tier** — `week1`, `week2` or `full` — decides which agents
+you can dispatch. It grows as you learn what good looks like here.
+
+Neither your role nor your tier is a judgement. Both are a starting point.
+
+**The CTO reading a 1:1 is logged, and you see the log.** It is on your own page
+under "who has read notes about you". That is what makes "the CTO can read
+everything" something you can live with rather than something you have to trust.
+
+### Who changes a role
+
+The CTO and the founder, on the **Admin** screen — which only they can see.
+Nobody changes their own row, including them: a role change should be something
+a second person agreed to. The full table of what each role can do lives on that
+screen, and every line names where it is enforced.
+
+Someone new signs in with Google and appears there as a `member` on `week1` with
+no GitHub login. Setting that login is what turns an account into somebody who
+can own work.
 
 ---
 

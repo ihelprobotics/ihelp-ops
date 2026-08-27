@@ -134,24 +134,7 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      <style dangerouslySetInnerHTML={{ __html: PEOPLE_CSS + ADMIN_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: PEOPLE_CSS }} />
     </main>
   );
 }
-
-const ADMIN_CSS = `
-  .prow { display: grid; grid-template-columns: 210px 1fr; gap: 10px 14px; padding: 13px 0; border-top: 1px solid #1E2A35; align-items: start; }
-  .prow:first-child { border-top: 0; }
-  .prow.off { opacity: .55; }
-  .pid b { display: block; font-weight: 500; font-size: 13px; }
-  .pid span { font-size: 11px; font-family: ui-monospace, monospace; color: #4E6472; }
-  .perms { display: flex; flex-direction: column; overflow-x: auto; }
-  .phead, .prow2 { display: grid; grid-template-columns: minmax(260px, 1fr) repeat(4, 92px); gap: 8px; align-items: baseline; padding: 7px 0; }
-  .phead { border-bottom: 1px solid #26343F; font-family: ui-monospace, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #78909F; }
-  .prow2 { border-top: 1px solid #1E2A35; font-size: 12px; }
-  .prow2:first-of-type { border-top: 0; }
-  .pwhat { display: flex; flex-direction: column; gap: 2px; }
-  .pcol { font-size: 11px; font-family: ui-monospace, monospace; }
-  .pcol.yes { color: #4FD1C5; }
-  .pcol.no { color: #4E6472; }
-`;

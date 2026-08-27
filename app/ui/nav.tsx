@@ -37,9 +37,7 @@ export default function Nav({ current, admin = false }: { current: NavKey; admin
   );
 }
 
-export const NAV_CSS = `
-  .nav { display: flex; gap: 4px; margin-top: 8px; }
-  .nav a { font-size: 11px; font-family: ui-monospace, monospace; text-decoration: none; color: #78909F; border: 1px solid transparent; border-radius: 2px; padding: 3px 8px; }
-  .nav a:hover { color: #DCE6ED; border-color: #26343F; }
-  .nav a.on { color: #4FD1C5; border-color: #26343F; background: #151F2A; }
-`;
+// The nav's own styling lives in app/ui/base-css.ts with the rest of the
+// shell, because every screen that renders this component already includes it.
+// A second stylesheet exported from here was a second place for the same rules
+// to be written, and the copy went stale the moment the palette changed.
