@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BASE_CSS } from "@/app/ui/base-css";
+import Nav, { NAV_CSS } from "@/app/ui/nav";
 
 /* Agent grid. Tier decides who may dispatch what — the same rule the API
    enforces server-side. Locked tiles stay visible with the reason showing:
@@ -103,6 +104,7 @@ export default function Dashboard() {
         <div>
           <h1>iHelp Ops</h1>
           <p className="sub">{repo || "—"}</p>
+          <Nav current="board" />
         </div>
         {me && (
           <div className="who">
@@ -243,6 +245,7 @@ export default function Dashboard() {
 
       <style jsx global>{`
         ${BASE_CSS}
+        ${NAV_CSS}
         .tasks { display: flex; flex-direction: column; gap: 8px; }
         .task { display: flex; align-items: center; gap: 12px; background: #151F2A; border: 1px solid #26343F; border-left: 3px solid #26343F; border-radius: 2px; padding: 11px 13px; }
         .task:hover { border-color: #4FD1C5; }

@@ -47,6 +47,35 @@ export const sql: postgres.Sql = new Proxy((() => {}) as any, {
 }) as postgres.Sql;
 
 /**
+ * The role the guarded reads run as.
+ *
+ * DATABASE_URL connects as `postgres`, and on Supabase that role has BYPASSRLS.
+ * Every policy in db/schema-people-growth.sql is therefore inert on that
+ * connection: the 1:1 a delivery manager must not be able to read comes back to
+ * them, and nothing anywhere reports a problem. It is the worst shape a
+ * security bug can have — correct policies, correctly applied to nobody.
+ *
+ * So withUser() does not only set the session context, it switches role for the
+ * duration of the transaction. `authenticated` is a Supabase built-in that
+ * holds no superuser and no BYPASSRLS bit and already carries the table grants,
+ * which is what lets this be a fix with no new credential behind it. Override
+ * with DB_APP_ROLE when the app gets a dedicated login role of its own.
+ *
+ * SET LOCAL ROLE is transaction scoped, exactly like the set_config calls
+ * beside it, so the connection goes back to what it was when the transaction
+ * ends — which matters on a pooler, where the next request gets this same
+ * connection.
+ */
+export const APP_ROLE = process.env.DB_APP_ROLE || "authenticated";
+
+// SET ROLE takes an identifier, not a parameter, so this string is concatenated
+// into SQL. It is checked rather than trusted: anything but a plain identifier
+// is refused by name here instead of becoming an injection point.
+if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(APP_ROLE)) {
+  throw new Error(`DB_APP_ROLE is "${APP_ROLE}", which is not a plain Postgres role name. It is used in SET LOCAL ROLE, which cannot take a parameter, so only [A-Za-z_][A-Za-z0-9_]* is accepted.`);
+}
+
+/**
  * Run queries as a specific person, with row-level security applied.
  *
  * This exists because of something that is easy to get wrong and silent when
@@ -77,6 +106,22 @@ export async function withUser<T>(
   return sql.begin(async (tx) => {
     await tx`select set_config('app.user_id', ${userId}, true)`;
     await tx`select set_config('app.user_role', ${role}, true)`;
+    // Last, and inside the same transaction: without it the two lines above are
+    // set for a role the policies do not apply to, and every read succeeds by
+    // bypassing the thing that was supposed to check it.
+    await assumeAppRole(tx);
     return fn(tx);
   }) as Promise<T>;
+}
+
+/**
+ * Switch this transaction to the unprivileged role, so policies apply.
+ *
+ * Exported because db/rls-check.mjs and db/people-check.mjs build their own
+ * fixture transactions and have to run them as the same role the application
+ * does. A check that proves isolation for a role nobody connects as proves
+ * nothing, and that is exactly the shape the failure took here.
+ */
+export async function assumeAppRole(tx: postgres.TransactionSql): Promise<void> {
+  await tx.unsafe(`set local role ${APP_ROLE}`);
 }

@@ -14,11 +14,27 @@ person types how far along they are.
 npm install
 cp .env.example .env.local     # fill in the eight values
 # apply db/schema.sql, then schema-people.sql, schema-people-growth.sql,
-# then schema-constraints.sql
+# then schema-note-access.sql, then schema-constraints.sql
 npm run dev
 ```
 
 Full instructions: `docs/08-complete-build-guide.md`.
+
+## Check it
+
+Each of these refuses to run without a real database, because a check that
+passes against nothing proves nothing.
+
+```bash
+npm run test:rls        # the policies, and that withUser makes them apply
+npm run test:people     # leave, the digest's filter, and the person page
+npm run test:webhook    # the seven rungs of the progress ladder  (needs npm run dev)
+npm run test:pages      # the four screens, signed in as three people (needs npm run dev)
+```
+
+`test:webhook` and `test:pages` take `WEBHOOK_URL` / `PAGE_URL` to run against
+the deployment instead of localhost. All four write only under fixture names and
+assert that they left nothing behind.
 
 ## Read the docs in this order
 

@@ -25,7 +25,7 @@
 
 import { randomUUID } from "node:crypto";
 
-const { sql, withUser } = await import("../lib/db.ts");
+const { sql, withUser, assumeAppRole, APP_ROLE } = await import("../lib/db.ts");
 
 // A green run against no database must not imply isolation holds.
 if (!process.env.DATABASE_URL) {
@@ -44,20 +44,29 @@ class Rollback extends Error {}
 
 try {
   // Superusers and BYPASSRLS roles ignore policies entirely, so a pass as one
-  // of those would prove nothing. docs/01: the app connects unprivileged.
-  const [me] = await sql`
-    select current_user as who, rolsuper, rolbypassrls
-      from pg_roles where rolname = current_user
-  `;
-  if (me.rolsuper || me.rolbypassrls) {
+  // of those would prove nothing.
+  //
+  // What matters is not the role the connection string logs in as — on Supabase
+  // that is `postgres`, which has BYPASSRLS — but the role withUser() switches
+  // to before it reads anything. That is the role the application's guarded
+  // queries actually run as, so that is the role checked here.
+  const [me] = await sql`select current_user as who`;
+  const [appRole] = await sql`
+    select rolname, rolsuper, rolbypassrls from pg_roles where rolname = ${APP_ROLE}`;
+
+  if (!appRole) {
+    console.error(`\nThere is no role called "${APP_ROLE}" in this database, so withUser() cannot switch to it and every guarded read would fail. Set DB_APP_ROLE to a role that exists.\n`);
+    process.exit(1);
+  }
+  if (appRole.rolsuper || appRole.rolbypassrls) {
     console.error(
-      `\nConnected as "${me.who}", which ${me.rolsuper ? "is a superuser" : "has BYPASSRLS"}.\n` +
+      `\nwithUser() runs as "${APP_ROLE}", which ${appRole.rolsuper ? "is a superuser" : "has BYPASSRLS"}.\n` +
       `Policies do not apply to that role, so this check cannot prove anything.\n` +
-      `Use the unprivileged role the application connects as.\n`
+      `Point DB_APP_ROLE at an unprivileged role.\n`
     );
     process.exit(1);
   }
-  console.log(`\nconnected as ${me.who} — not a superuser, policies are in force\n`);
+  console.log(`\nconnected as ${me.who}; guarded reads run as ${APP_ROLE} — no superuser, no BYPASSRLS, policies are in force\n`);
 
   // ---------------------------------------------------------------------
   // A. The wrapper. No fixtures needed: ask the database what it can see.
@@ -67,10 +76,16 @@ try {
 
   const [seen] = await withUser(someone, "cto", (tx) => tx`
     select current_setting('app.user_id', true)   as uid,
-           current_setting('app.user_role', true) as role
+           current_setting('app.user_role', true) as role,
+           current_user                           as who
   `);
   is("the query reads back the user it was run as", seen.uid, someone);
   is("and the role", seen.role, "cto");
+  // The one that made every other assertion here meaningless when it was
+  // missing: the context was being set for a role policies do not apply to.
+  is("and runs as the unprivileged role, not the login role", seen.who, APP_ROLE);
+  is("which the connection goes back from afterwards",
+     (await sql`select current_user as who`)[0].who, (await sql`select session_user as who`)[0].who);
 
   await sql`select set_config('app.user_id', ${someone}, true)`;
   const [after] = await sql`select current_setting('app.user_id', true) as uid`;
@@ -97,6 +112,11 @@ try {
       const cto = people[`rls-check-${tag}-cto`];
       const lead = people[`rls-check-${tag}-lead`];
       const member = people[`rls-check-${tag}-member`];
+
+      // The fixtures above are written as the login role; everything from here
+      // down has to run as the role the application's guarded reads run as, or
+      // the policies below are being tested against a role that bypasses them.
+      await assumeAppRole(tx);
 
       // Context is transaction scoped, so switching it here is how one
       // transaction can act as several people in turn.

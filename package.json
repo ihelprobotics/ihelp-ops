@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:rls": "node db/rls-check.mjs"
+    "test:rls": "node --env-file-if-exists=.env.local db/rls-check.mjs",
+    "test:webhook": "node --env-file-if-exists=.env.local db/webhook-check.mjs",
+    "test:people": "node --env-file-if-exists=.env.local db/people-check.mjs",
+    "test:pages": "node --env-file-if-exists=.env.local db/pages-check.mjs"
   },
   "dependencies": {
     "postgres": "^3.4.5",
