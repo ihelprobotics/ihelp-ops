@@ -9,7 +9,9 @@
     "test:rls": "node --env-file-if-exists=.env.local db/rls-check.mjs",
     "test:webhook": "node --env-file-if-exists=.env.local db/webhook-check.mjs",
     "test:people": "node --env-file-if-exists=.env.local db/people-check.mjs",
-    "test:pages": "node --env-file-if-exists=.env.local db/pages-check.mjs"
+    "test:pages": "node --env-file-if-exists=.env.local db/pages-check.mjs",
+    "test:analytics": "node --env-file-if-exists=.env.local db/analytics-check.mjs",
+    "digest": "node --env-file-if-exists=.env.local ops/daily-email.mjs"
   },
   "dependencies": {
     "postgres": "^3.4.5",

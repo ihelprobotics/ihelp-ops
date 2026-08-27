@@ -13,6 +13,7 @@ const PAGES = [
   { href: "/team", key: "team", label: "Team" },
   { href: "/leave", key: "leave", label: "Leave" },
   { href: "/me", key: "me", label: "Me" },
+  { href: "/analytics", key: "analytics", label: "Analytics" },
 ] as const;
 
 export type NavKey = (typeof PAGES)[number]["key"];
