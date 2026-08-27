@@ -1,0 +1,418 @@
+<title>iHelp Ops Handbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  /* Palette taken from the product itself — app/ui/base-css.ts. The guide and
+     the thing it describes should look like they come from the same place. */
+  :root {
+    --ground:  #F6F8F9;
+    --surface: #FFFFFF;
+    --raised:  #EDF1F3;
+    --rule:    #D7E0E5;
+    --text:    #15212C;
+    --muted:   #5B6E7B;
+    --faint:   #8194A0;
+    --accent:  #0F7F76;
+    --accent-soft: #E2F2F0;
+    --amber:   #8A5A12;
+    --amber-soft: #F7EEDF;
+    --shadow:  0 1px 2px rgba(21, 33, 44, .06);
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #0E1620;
+      --surface: #151F2A;
+      --raised:  #1B2733;
+      --rule:    #26343F;
+      --text:    #DCE6ED;
+      --muted:   #8FA3B0;
+      --faint:   #63798A;
+      --accent:  #4FD1C5;
+      --accent-soft: #12302E;
+      --amber:   #F2A03D;
+      --amber-soft: #2C2416;
+      --shadow:  none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:  #0E1620;
+    --surface: #151F2A;
+    --raised:  #1B2733;
+    --rule:    #26343F;
+    --text:    #DCE6ED;
+    --muted:   #8FA3B0;
+    --faint:   #63798A;
+    --accent:  #4FD1C5;
+    --accent-soft: #12302E;
+    --amber:   #F2A03D;
+    --amber-soft: #2C2416;
+    --shadow:  none;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--text);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+
+  /* ---- masthead ---------------------------------------------------- */
+  .mast { display: flex; flex-direction: column; gap: 1.1rem; padding-bottom: 2.4rem; border-bottom: 2px solid var(--text); }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .69rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--faint); margin: 0;
+  }
+  h1 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700; font-size: clamp(2.3rem, 7vw, 3.4rem); line-height: 1.02;
+    letter-spacing: -.028em; margin: 0; text-wrap: balance;
+  }
+  .standfirst { font-size: 1.16rem; color: var(--muted); margin: 0; max-width: 34rem; }
+  .url {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .82rem;
+    color: var(--accent); word-break: break-all; text-decoration: none;
+    border-bottom: 1px solid var(--rule); padding-bottom: 1px; align-self: flex-start;
+  }
+  .url:hover { border-bottom-color: var(--accent); }
+
+  /* ---- sections ---------------------------------------------------- */
+  section { margin-top: 3.6rem; }
+  h2 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600; font-size: 1.6rem; line-height: 1.15; letter-spacing: -.018em;
+    margin: 0 0 .5rem; text-wrap: balance;
+  }
+  h3 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600; font-size: 1.02rem; letter-spacing: -.008em;
+    margin: 2rem 0 .35rem;
+  }
+  p { margin: 0 0 1rem; }
+  section > p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  .lede { font-size: 1.06rem; color: var(--muted); margin-bottom: 1.6rem; }
+
+  /* ---- the rule ---------------------------------------------------- */
+  .thesis {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 3px;
+    padding: 1.9rem 1.8rem; margin-top: 2.6rem; box-shadow: var(--shadow);
+  }
+  .thesis .big {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700; font-size: clamp(1.35rem, 4.2vw, 1.75rem); line-height: 1.2;
+    letter-spacing: -.02em; margin: 0 0 1rem; text-wrap: balance;
+  }
+  .thesis p:last-child { margin-bottom: 0; }
+
+  /* ---- the ladder: a real sequence, so it gets real numbering ------- */
+  .ladder { display: grid; gap: 0; margin: 1.6rem 0 1.1rem; }
+  .rung {
+    display: grid; grid-template-columns: 4.2rem 1fr; gap: 1.1rem;
+    align-items: baseline; padding: .78rem 0; border-top: 1px solid var(--rule);
+  }
+  .rung:first-child { border-top: 0; }
+  .rung .pc {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500;
+    font-size: .95rem; color: var(--accent); font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .rung .cause { font-size: 1rem; }
+  .rung.top .pc { color: var(--text); }
+
+  /* ---- definition rows --------------------------------------------- */
+  .rows { display: grid; gap: 0; margin: 1.2rem 0; }
+  .row {
+    display: grid; grid-template-columns: 10.5rem 1fr; gap: 1.1rem;
+    padding: .72rem 0; border-top: 1px solid var(--rule); align-items: baseline;
+  }
+  .row:first-child { border-top: 0; }
+  .row dt {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600; font-size: .93rem;
+  }
+  .row dd { margin: 0; color: var(--muted); font-size: .98rem; }
+  .row dd strong { color: var(--text); font-weight: 600; }
+
+  /* ---- steps ------------------------------------------------------- */
+  ol.steps { list-style: none; counter-reset: s; margin: 1.4rem 0 0; padding: 0; display: grid; gap: 1.5rem; }
+  ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 2rem 1fr; gap: 1rem; }
+  ol.steps > li::before {
+    content: counter(s);
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .82rem;
+    color: var(--accent); border: 1px solid var(--rule); border-radius: 50%;
+    width: 1.85rem; height: 1.85rem; display: grid; place-items: center;
+    margin-top: .12rem;
+  }
+  ol.steps h3 { margin: 0 0 .25rem; }
+  ol.steps p { margin: 0 0 .5rem; font-size: 1rem; }
+  ol.steps p:last-child { margin-bottom: 0; }
+
+  ul.plain { margin: .9rem 0; padding-left: 1.1rem; }
+  ul.plain li { margin-bottom: .4rem; }
+
+  /* ---- code -------------------------------------------------------- */
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .85em;
+    background: var(--raised); border-radius: 2px; padding: .1em .38em;
+    color: var(--text);
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .84rem;
+    background: var(--surface); border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+    border-radius: 2px; padding: .9rem 1rem; margin: 1rem 0;
+    overflow-x: auto; line-height: 1.55; color: var(--text);
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  /* ---- callouts ---------------------------------------------------- */
+  .note {
+    background: var(--accent-soft); border-left: 2px solid var(--accent);
+    border-radius: 0 2px 2px 0; padding: 1rem 1.15rem; margin: 1.4rem 0;
+    font-size: 1rem;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .warn { background: var(--amber-soft); border-left-color: var(--amber); }
+
+  blockquote {
+    margin: 1.5rem 0; padding: 0 0 0 1.15rem; border-left: 2px solid var(--rule);
+    font-size: 1.12rem; color: var(--text); font-style: italic;
+  }
+  blockquote p { margin: 0; }
+
+  .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--faint); border: 1px solid var(--rule); border-radius: 2px;
+    padding: .14rem .45rem; white-space: nowrap;
+  }
+
+  footer {
+    margin-top: 4.5rem; padding-top: 1.6rem; border-top: 1px solid var(--rule);
+    font-size: .9rem; color: var(--faint);
+  }
+  footer p { margin: 0 0 .4rem; }
+
+  a { color: var(--accent); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  @media (max-width: 34rem) {
+    body { font-size: 17px; }
+    .page { padding: 2.5rem 1.15rem 4rem; }
+    .row { grid-template-columns: 1fr; gap: .15rem; }
+    .rung { grid-template-columns: 3.4rem 1fr; gap: .9rem; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="mast">
+    <p class="eyebrow">iHelp Robotics · internal</p>
+    <h1>How we run work here</h1>
+    <p class="standfirst">Everything you need to use the ops platform — whether you write code or not. Read it once, keep it open for a week.</p>
+    <a class="url" href="https://ihelp-ops-ai-decodeds-projects.vercel.app">ihelp-ops-ai-decodeds-projects.vercel.app</a>
+  </header>
+
+  <div class="thesis">
+    <p class="big">Nobody types how far along they are.</p>
+    <p>There is no “80% done” box anywhere in this platform, and there never will be. A task moves because something real happened: a branch appeared, a commit landed, a pull request opened, a person approved it, it merged.</p>
+    <p><strong>You can’t fall behind by forgetting to update a status.</strong> If you did the work, the platform already knows. You never have to report progress.</p>
+    <p><strong>You also can’t get ahead by saying you did.</strong> Nobody can, including the founder. That’s the point — everyone is measured the same way, by what exists.</p>
+  </div>
+
+  <section>
+    <h2>Getting in</h2>
+    <p class="lede">Two minutes, once.</p>
+    <p>Open the link above and press <strong>Sign in with Google</strong>, using your work Gmail. Your account is created the first time you sign in. That’s the whole setup.</p>
+
+    <h3>If you write code, link GitHub too</h3>
+    <p>Ask whoever runs the platform to attach your GitHub username to your account — it’s a one-line change.</p>
+    <p>Git signs every commit with a GitHub username. Reviews, approvals and code ownership all use it. So an account with no GitHub username attached can’t <em>own</em> work, and the platform won’t let it start a task or run an agent. That’s deliberate.</p>
+    <div class="note">
+      <p><strong>Without GitHub linked you can still</strong> read everything, book leave, comment on tasks, and see your own goals and feedback. Only starting work and running agents are closed to you.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The five screens</h2>
+    <dl class="rows">
+      <div class="row"><dt>Board</dt><dd>Every open task, and how far each has really got</dd></div>
+      <div class="row"><dt>Team</dt><dd>Who’s on which pod, what they have open, who’s away today</dd></div>
+      <div class="row"><dt>Leave</dt><dd>Book time off, see your balance, approve your team’s requests</dd></div>
+      <div class="row"><dt>Me</dt><dd>Your goals, your 1:1 notes, feedback about you, what you’ve shipped</dd></div>
+      <div class="row"><dt>Analytics</dt><dd>How work is flowing across the whole team</dd></div>
+    </dl>
+  </section>
+
+  <section>
+    <h2>How a task actually moves</h2>
+    <p class="lede">Seven steps. Each is caused by a real thing — never by clicking a button that says “done”.</p>
+    <div class="ladder">
+      <div class="rung"><span class="pc">10%</span><span class="cause">Somebody opened the issue</span></div>
+      <div class="rung"><span class="pc">20%</span><span class="cause">A branch was created for it</span></div>
+      <div class="rung"><span class="pc">40%</span><span class="cause">The first commit landed on that branch</span></div>
+      <div class="rung"><span class="pc">60%</span><span class="cause">A pull request was opened</span></div>
+      <div class="rung"><span class="pc">75%</span><span class="cause">The automated checks passed</span></div>
+      <div class="rung"><span class="pc">90%</span><span class="cause">A human approved it</span></div>
+      <div class="rung top"><span class="pc">100%</span><span class="cause">It was merged</span></div>
+    </div>
+    <p>If a task sits at 10%, nothing has happened yet — not “somebody forgot to update it”. That’s useful information rather than a failure of admin.</p>
+  </section>
+
+  <section>
+    <h2>Doing a piece of work</h2>
+    <ol class="steps">
+      <li>
+        <div>
+          <h3>Pick it up</h3>
+          <p>Open the task from the Board and press <strong>Start task</strong>. The platform creates a branch named after the issue — <code>task/42/fall-detection-threshold</code>. That number is how everything you do afterwards attaches itself to the task automatically.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3>Open it in VS Code</h3>
+          <p>The task page gives you three ways in: <strong>Desktop</strong> opens VS Code on your machine, <strong>Browser</strong> opens an editor in a tab with nothing to install, and <strong>Terminal</strong> gives you the git command if you already have the repo.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3>Set up the commit hook — once per clone</h3>
+          <pre><code>git config core.hooksPath .githooks</code></pre>
+          <p>Run this the first time you clone the repository. It makes every commit tag itself with the task number, which is what puts your work on the board without you doing anything else. Skip it and your commits still land — they just won’t attach to any task, and the bar won’t move.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3>Work, commit, push</h3>
+          <p>Normal git. Commit and push as often as you like. Within a minute of pushing, the task moves to 40% on its own.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3>Pull request, review, merge</h3>
+          <p>All three from the task page. The <strong>Merge</strong> button calls GitHub — it can’t override anything. If GitHub refuses because a review is missing, that refusal is the protection working, not a broken button.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Using an agent</h2>
+    <p class="lede">Agents are AI teammates. Pick a task, press <strong>Run</strong>, and a few minutes later there’s a pull request waiting for you.</p>
+
+    <h3>What you can run depends on your tier</h3>
+    <dl class="rows">
+      <div class="row"><dt><span class="tag">week 1</span></dt><dd>Scribe (docs) · Data Annotator · QA</dd></div>
+      <div class="row"><dt><span class="tag">week 2</span></dt><dd>the above, plus Frontend</dd></div>
+      <div class="row"><dt><span class="tag">full</span></dt><dd>the above, plus Full-stack · AI Developer · Integrator · Architect</dd></div>
+    </dl>
+    <p>Locked agents stay visible and greyed out with the reason showing — a hidden button teaches you nothing. A few (Deployer, Cloud, Social, Outreach, Lead Gen) can never be dispatched from here; their human owner runs them.</p>
+
+    <div class="note warn">
+      <p><strong>You own what the agent produced.</strong> Your name goes on the pull request. Read every line, run it, and be ready to explain it. “The agent wrote it” isn’t an answer, and the platform records who asked for the run.</p>
+    </div>
+    <p>Two runs at a time, each — the same work-in-progress limit as everything else. Every run records what it cost, visible on the task and on Analytics.</p>
+  </section>
+
+  <section>
+    <h2>Booking leave</h2>
+    <p class="lede">Go to <strong>Leave</strong>, pick the kind and the dates, press Request.</p>
+    <dl class="rows">
+      <div class="row"><dt>Planned</dt><dd>Comes off your annual balance</dd></div>
+      <div class="row"><dt>Unpaid</dt><dd>Comes off your annual balance</dd></div>
+      <div class="row"><dt>Sick</dt><dd>Recorded, but <strong>not</strong> deducted</dd></div>
+      <div class="row"><dt>Comp off</dt><dd>Recorded, but <strong>not</strong> deducted</dd></div>
+    </dl>
+    <p>Your lead approves it — or the CTO, if you have no lead set. The page tells you who it’s waiting on, and you can withdraw a request while it’s still pending. A rejection always comes with a written reason you can read.</p>
+    <div class="note">
+      <p><strong>Why leave is in an engineering tool at all:</strong> so nobody chases you on a day you’re away. Once it’s approved, the daily email skips you entirely. That is the whole reason it exists.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Your page, and who can read it</h2>
+    <p class="lede"><strong>Me</strong> shows your goals, your 1:1 notes, feedback written about you, and a log of who has read notes about you.</p>
+    <p>Goals are reported as <em>counts of evidence linked and landed</em> — never as a score. You will never see a percentage next to your name in this platform.</p>
+
+    <h3>Who can read what</h3>
+    <p>This is enforced by the database itself, not by a policy someone could forget.</p>
+    <ul class="plain">
+      <li><strong>You</strong> can read everything written about you. There are no private manager files. If it exists, you can see it.</li>
+      <li><strong>Whoever wrote a note</strong> can read their own note.</li>
+      <li><strong>The CTO</strong> can read all notes — and every read of a note they didn’t write and isn’t about them appears in your access log.</li>
+      <li><strong>Nobody else.</strong> Not your lead, not another lead, not a colleague.</li>
+    </ul>
+    <p>If a colleague opens your page and sees nothing under 1:1s, the page tells them <em>why</em> it’s empty rather than implying you have no record.</p>
+  </section>
+
+  <section>
+    <h2>Analytics</h2>
+    <p class="lede">Team-wide, never a leaderboard.</p>
+    <dl class="rows">
+      <div class="row"><dt>Cycle time</dt><dd>How long a task took from opened to merged</dd></div>
+      <div class="row"><dt>Review wait</dt><dd>How long a pull request sat before a human approved it. If this climbs, reviews are the bottleneck — not the coding</dd></div>
+      <div class="row"><dt>Claimed, and proven</dt><dd>Open tasks with a name on them and no branch, commit or pull request behind them yet</dd></div>
+      <div class="row"><dt>Stalled</dt><dd>Nothing has happened for three days or more</dd></div>
+      <div class="row"><dt>Cost</dt><dd>What the agents spent, per agent and per person</dd></div>
+    </dl>
+    <p><em>Claimed, and proven</em> is not a naughty list. A task can be assigned this morning, or be a week of reading first. It’s simply the one place where what’s claimed and what exists sit side by side. Same for stalled — a prompt to ask, not a verdict.</p>
+    <div class="note">
+      <p><strong>There are no hours anywhere.</strong> No time online, no time tracked, no presence. The moment those sit next to real work, people optimise the easier number. Cycle time measures how long the <em>work</em> waited — not how long you sat at a desk.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The daily email</h2>
+    <p class="lede">At 6pm, two things go out.</p>
+    <p><strong>A nudge</strong> — only to someone with nothing recorded that day and no blocker raised. It’s a prompt, not a telling-off; plenty of days are reading, debugging or meetings. At most one a day, ever. On approved leave, none at all.</p>
+    <p><strong>A digest</strong> to the CTO and delivery manager, covering everybody in one email.</p>
+
+    <h3>If you’re stuck</h3>
+    <p>Raise it in writing — label the issue <code>blocked</code>, or say so in your pod channel.</p>
+    <blockquote><p>A block that is raised belongs to the company. A block that is not raised belongs to you.</p></blockquote>
+    <p>Nobody minds a blocker. Silence is the only thing that causes problems.</p>
+  </section>
+
+  <section>
+    <h2>Looks like a bug, isn’t</h2>
+    <p class="lede">Every error here tells you what failed and what to check. If you find one that doesn’t, that’s worth reporting.</p>
+    <dl class="rows">
+      <div class="row"><dt>Everything says 10%</dt><dd>No GitHub activity has reached the platform. The board says so explicitly rather than showing you a quiet week</dd></div>
+      <div class="row"><dt>Merge was refused</dt><dd>Branch protection. A required review or check is missing. Working as intended</dd></div>
+      <div class="row"><dt>My commits aren’t showing</dt><dd>The commit hook probably isn’t installed in that clone. Run the <code>core.hooksPath</code> command above and push again</dd></div>
+      <div class="row"><dt>I can’t run any agents</dt><dd>Your GitHub account isn’t linked yet, or the agent is above your tier. The tile says which</dd></div>
+    </dl>
+  </section>
+
+  <section>
+    <h2>If you don’t write code</h2>
+    <p class="lede">Most of the platform is yours.</p>
+    <ul class="plain">
+      <li>Read every task and see exactly where the work stands</li>
+      <li>Comment on tasks — your comment goes to the real GitHub issue</li>
+      <li>Book and track leave</li>
+      <li>See your goals, your 1:1 notes, and feedback about you</li>
+      <li>See the team, and who’s away</li>
+    </ul>
+    <p>You can’t start a task or run an agent, because work has to be attributable to a git identity. That’s a limit on the tool, not a comment on you.</p>
+  </section>
+
+  <footer>
+    <p>Questions about the platform go to the founder. Questions about a task go on the task.</p>
+    <p>The full technical documentation lives in the repository under <code>docs/</code>.</p>
+  </footer>
+
+</div>
