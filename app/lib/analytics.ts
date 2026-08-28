@@ -15,7 +15,7 @@
 // to that is an argument about the outlier rather than about the work.
 
 import { sql } from "@/lib/db";
-import { ghFetch, expectList } from "@/app/lib/github";
+import { openWorkForAll } from "@/app/lib/work";
 import { stageOf, branchIsForTask, STAGE } from "@/app/lib/progress";
 import { taskHref } from "@/app/lib/repos";
 
@@ -142,19 +142,14 @@ export async function loadAnalytics(list: string[]): Promise<Analytics> {
     // whole live section down on purpose here — a "stalled" list computed from
     // three repositories out of four would be quietly wrong, and quietly wrong
     // is worse on a page people use to decide who to talk to.
-    const perRepo = await Promise.all(
-      list.map(async (repo) => {
-        const [issuesRes, branchesRes] = await Promise.all([
-          ghFetch(`/repos/${repo}/issues?state=open&per_page=100`),
-          ghFetch(`/repos/${repo}/branches?per_page=100`),
-        ]);
-        return {
-          repo,
-          issues: expectList(issuesRes.body, "issues").filter((i: any) => !i.pull_request),
-          branches: expectList(branchesRes.body, "branches").map((b: any) => b.name as string),
-        };
-      })
-    );
+    const perRepo = await openWorkForAll(list);
+    const broken = perRepo.filter((r) => r.error);
+    if (broken.length) {
+      // Stalled work computed from ten repositories out of thirteen would be
+      // quietly wrong, and quietly wrong is worse on a page people use to
+      // decide who to talk to.
+      throw new Error(broken.map((b) => `${b.repo}: ${b.error}`).join("; "));
+    }
 
     const numbers = perRepo.flatMap((p) => p.issues.map((i: any) => i.number));
     const [kinds, commits] = numbers.length

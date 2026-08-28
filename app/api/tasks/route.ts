@@ -20,6 +20,7 @@ import { auth } from "@/auth";
 import { sql } from "@/lib/db";
 import { stageOf, branchIsForTask } from "@/app/lib/progress";
 import { repos, taskHref, type Repo } from "@/app/lib/repos";
+import { openWorkFor } from "@/app/lib/work";
 
 type Row = {
   repo: string;
@@ -48,39 +49,14 @@ export async function GET() {
     return NextResponse.json({ error: "GH_DISPATCH_TOKEN is not set, so GitHub cannot be read." }, { status: 500 });
   }
 
-  const headers = {
-    Authorization: `Bearer ${process.env.GH_DISPATCH_TOKEN}`,
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
 
   // One repository failing must not blank the others. Each is read
   // independently and reports its own problem, so a token that lost access to
   // one repo shows an error beside that repo rather than an empty board.
-  const perRepo = await Promise.all(
-    list.map(async (r) => {
-      const [issueRes, branchRes] = await Promise.all([
-        fetch(`https://api.github.com/repos/${r.full}/issues?state=open&per_page=50`, { headers, cache: "no-store" }),
-        fetch(`https://api.github.com/repos/${r.full}/branches?per_page=100`, { headers, cache: "no-store" }),
-      ]);
-
-      if (!issueRes.ok) {
-        const detail = (await issueRes.text()).slice(0, 200);
-        const hint =
-          issueRes.status === 404
-            ? `Either "${r.full}" is wrong, or the token's repository access list does not include it — a fine-grained token answers 404, not 403, for a repo it cannot see.`
-            : issueRes.status === 401
-            ? "GH_DISPATCH_TOKEN is invalid or expired."
-            : "";
-        return { repo: r.full, error: `GitHub returned ${issueRes.status} for ${r.full}. ${hint} ${detail}`.trim(), issues: [], branches: [] };
-      }
-
-      const issues = (await issueRes.json()).filter((i: any) => !i.pull_request);
-      // A failed branch listing degrades stage 20; it does not break the repo.
-      const branches: string[] = branchRes.ok ? (await branchRes.json()).map((b: any) => b.name) : [];
-      return { repo: r.full, error: null as string | null, issues, branches };
-    })
-  );
+  //
+  // The read itself is shared and short-lived — see app/lib/work.ts. Without
+  // that, this endpoint alone spends twenty-six GitHub requests per load.
+  const perRepo = await Promise.all(list.map((r) => openWorkFor(r.full)));
 
   // Evidence for every task on the board, in two queries rather than per repo.
   const names = perRepo.map((p) => p.repo);

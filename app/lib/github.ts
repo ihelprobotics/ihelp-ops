@@ -35,6 +35,26 @@ type GhOptions = Omit<RequestInit, "headers"> & {
   allow?: number[];
 };
 
+/**
+ * How long to wait for GitHub before giving up.
+ *
+ * Ten seconds is well past its normal response and well inside the function's
+ * own budget, which leaves room to report the failure rather than being killed
+ * mid-sentence.
+ */
+const GH_TIMEOUT_MS = 10_000;
+
+/**
+ * How many requests this instance has sent to GitHub since it started.
+ *
+ * Reported by /api/health. GitHub's own rate_limit endpoint is not a reliable
+ * way to measure this from outside — it did not move for our token under a
+ * direct read — so the platform counts what it actually sends rather than
+ * inferring it from somebody else's accounting.
+ */
+let sent = 0;
+export const githubRequestsSent = () => sent;
+
 function explain(status: number): string {
   if (status === 401) return "GH_DISPATCH_TOKEN is invalid or expired.";
   if (status === 403) return "GH_DISPATCH_TOKEN lacks a permission this needs, or the rate limit is spent.";
@@ -65,19 +85,45 @@ export async function ghFetch(path: string, opts: GhOptions = {}): Promise<{ sta
     );
   }
 
-  const res = await fetch(`https://api.github.com${path}`, {
-    ...init,
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...headers,
-    },
-  });
+  // A hung request must not hang the page. Without this, one slow GitHub call
+  // holds a serverless function until the platform kills it, and the reader
+  // gets a blank screen after thirty seconds instead of an error after ten.
+  let res: Response;
+  sent++;
+  try {
+    res = await fetch(`https://api.github.com${path}`, {
+      ...init,
+      cache: "no-store",
+      signal: AbortSignal.timeout(GH_TIMEOUT_MS),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...headers,
+      },
+    });
+  } catch (e: any) {
+    if (e?.name === "TimeoutError" || e?.name === "AbortError") {
+      throw new Error(`GitHub did not answer ${path} within ${GH_TIMEOUT_MS / 1000} seconds. That is GitHub being slow or unreachable, not this repository being empty.`);
+    }
+    throw new Error(`Could not reach GitHub for ${path}: ${e?.message ?? String(e)}`);
+  }
 
   if (!res.ok && !allow.includes(res.status)) {
+    // Rate limiting arrives as a 403 that looks like a permission problem and
+    // is not one. Telling them apart is the difference between "check the
+    // token's scopes" and "wait eleven minutes", and somebody will otherwise
+    // spend the eleven minutes on the scopes.
+    const remaining = res.headers.get("x-ratelimit-remaining");
+    const reset = res.headers.get("x-ratelimit-reset");
+    if ((res.status === 403 || res.status === 429) && remaining === "0") {
+      const when = reset ? new Date(Number(reset) * 1000) : null;
+      const mins = when ? Math.max(1, Math.ceil((when.getTime() - Date.now()) / 60000)) : null;
+      throw new Error(
+        `GitHub's hourly request limit is spent, so nothing can be read until it resets${mins ? ` in about ${mins} minute${mins === 1 ? "" : "s"}` : ""}. This is not a permissions problem and nothing is broken — the platform is reading more than the limit allows.`
+      );
+    }
     const detail = (await res.text()).slice(0, 400);
     throw new Error(`GitHub returned ${res.status} for ${path}. ${explain(res.status)} ${detail}`.replace(/\s+/g, " ").trim());
   }

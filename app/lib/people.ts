@@ -9,8 +9,8 @@
 // people optimise the easier number.
 
 import { sql } from "@/lib/db";
-import { ghFetch, expectList } from "@/app/lib/github";
 import { repos, taskHref } from "@/app/lib/repos";
+import { openWorkForAll } from "@/app/lib/work";
 
 export type Person = {
   id: string;
@@ -70,12 +70,11 @@ export async function loadTeam(): Promise<Team> {
     const list = await repos();
     names = list.map((r) => r.full);
 
-    const perRepo = await Promise.all(
-      list.map(async (r) => {
-        const { body } = await ghFetch(`/repos/${r.full}/issues?state=open&per_page=100`);
-        return { repo: r.full, issues: expectList(body, "issues").filter((i: any) => !i.pull_request) };
-      })
-    );
+    const perRepo = await openWorkForAll(names);
+    const failed = perRepo.filter((r) => r.error);
+    if (failed.length) {
+      workError = `${failed.length === 1 ? "One repository" : failed.length + " repositories"} could not be read: ${failed.map((f) => f.repo + " — " + f.error).join("; ")}`;
+    }
 
     byAssignee = new Map();
     unassigned = [];

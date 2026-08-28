@@ -17,6 +17,7 @@ import { ghFetch, startTask, openPR, merge, assign } from "@/app/lib/github";
 import { branchIsForTask } from "@/app/lib/progress";
 import { repoFromPath, taskRef } from "@/app/lib/repos";
 import { canAssign, assignmentMessage, assignsOthers } from "@/app/lib/assign";
+import { forgetWork } from "@/app/lib/work";
 
 type Ctx = { params: Promise<{ owner: string; name: string; number: string }> };
 
@@ -82,6 +83,12 @@ export async function POST(req: Request, { params }: Ctx) {
       { status: 403 }
     );
   }
+
+  // Whatever happens below changes this repository, and the board reads it
+  // through a thirty-second cache. Pressing "Take it" and still seeing nobody's
+  // name for half a minute reads as the button not working — and the second
+  // press is somebody trying again.
+  forgetWork(repo);
 
   try {
     switch (action) {

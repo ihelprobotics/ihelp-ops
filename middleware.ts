@@ -12,9 +12,11 @@ export const { auth: middleware } = NextAuth(authConfig);
 //   api/agents/local — Claude Code hooks from developer machines
 //   api/cron         — Vercel Cron, guarded by CRON_SECRET in the route
 //   api/auth         — the sign-in flow itself
+//   api/health       — what an uptime monitor polls; it has no session, and a
+//                      health check behind a login only proves the login works
 // Everything else requires a signed-in user.
 export const config = {
   matcher: [
-    "/((?!api/webhooks|api/agents/local|api/cron|api/auth|_next/static|_next/image|favicon.ico|login).*)",
+    "/((?!api/webhooks|api/agents/local|api/cron|api/auth|api/health|_next/static|_next/image|favicon.ico|login).*)",
   ],
 };
