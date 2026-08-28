@@ -1,0 +1,355 @@
+<title>The lead handbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  /* The product's own tokens — app/ui/base-css.ts. The guide and the thing it
+     describes should look like they come from the same place, so these are the
+     same values rather than an approximation of them. */
+  :root {
+    --ground:  #F5F5F7;
+    --surface: #FFFFFF;
+    --raised:  #EFEFF3;
+    --rule:    #E4E4E9;
+    --text:    #1D1D1F;
+    --muted:   #6E6E73;
+    --faint:   #A0A0A6;
+    --accent:  #12736C;
+    --accent-soft: #EAF4F2;
+    --amber:   #8A5A12;
+    --amber-soft: #FDF4E6;
+    --shadow:  0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.03);
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #0E1620;
+      --surface: #151F2A;
+      --raised:  #1B2733;
+      --rule:    #26343F;
+      --text:    #DCE6ED;
+      --muted:   #8FA3B0;
+      --faint:   #63798A;
+      --accent:  #4FD1C5;
+      --accent-soft: #12302E;
+      --amber:   #F2A03D;
+      --amber-soft: #2C2416;
+      --shadow:  none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:  #0E1620;
+    --surface: #151F2A;
+    --raised:  #1B2733;
+    --rule:    #26343F;
+    --text:    #DCE6ED;
+    --muted:   #8FA3B0;
+    --faint:   #63798A;
+    --accent:  #4FD1C5;
+    --accent-soft: #12302E;
+    --amber:   #F2A03D;
+    --amber-soft: #2C2416;
+    --shadow:  none;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--text);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+
+  /* ---- masthead ---------------------------------------------------- */
+  .mast { display: flex; flex-direction: column; gap: 1.1rem; padding-bottom: 2.4rem; border-bottom: 2px solid var(--text); }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .69rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--faint); margin: 0;
+  }
+  h1 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700; font-size: clamp(2.3rem, 7vw, 3.4rem); line-height: 1.02;
+    letter-spacing: -.028em; margin: 0; text-wrap: balance;
+  }
+  .standfirst { font-size: 1.16rem; color: var(--muted); margin: 0; max-width: 34rem; }
+  .url {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .82rem;
+    color: var(--accent); word-break: break-all; text-decoration: none;
+    border-bottom: 1px solid var(--rule); padding-bottom: 1px; align-self: flex-start;
+  }
+  .url:hover { border-bottom-color: var(--accent); }
+
+  /* ---- sections ---------------------------------------------------- */
+  section { margin-top: 3.6rem; }
+  h2 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600; font-size: 1.6rem; line-height: 1.15; letter-spacing: -.018em;
+    margin: 0 0 .5rem; text-wrap: balance;
+  }
+  h3 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600; font-size: 1.02rem; letter-spacing: -.008em;
+    margin: 2rem 0 .35rem;
+  }
+  p { margin: 0 0 1rem; }
+  section > p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  .lede { font-size: 1.06rem; color: var(--muted); margin-bottom: 1.6rem; }
+
+  /* ---- the rule ---------------------------------------------------- */
+  .thesis {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 3px;
+    padding: 1.9rem 1.8rem; margin-top: 2.6rem; box-shadow: var(--shadow);
+  }
+  .thesis .big {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700; font-size: clamp(1.35rem, 4.2vw, 1.75rem); line-height: 1.2;
+    letter-spacing: -.02em; margin: 0 0 1rem; text-wrap: balance;
+  }
+  .thesis p:last-child { margin-bottom: 0; }
+
+  /* ---- the ladder: a real sequence, so it gets real numbering ------- */
+  .ladder { display: grid; gap: 0; margin: 1.6rem 0 1.1rem; }
+  .rung {
+    display: grid; grid-template-columns: 4.2rem 1fr; gap: 1.1rem;
+    align-items: baseline; padding: .78rem 0; border-top: 1px solid var(--rule);
+  }
+  .rung:first-child { border-top: 0; }
+  .rung .pc {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500;
+    font-size: .95rem; color: var(--accent); font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .rung .cause { font-size: 1rem; }
+  .rung.top .pc { color: var(--text); }
+
+  /* ---- definition rows --------------------------------------------- */
+  .rows { display: grid; gap: 0; margin: 1.2rem 0; }
+  .row {
+    display: grid; grid-template-columns: 10.5rem 1fr; gap: 1.1rem;
+    padding: .72rem 0; border-top: 1px solid var(--rule); align-items: baseline;
+  }
+  .row:first-child { border-top: 0; }
+  .row dt {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600; font-size: .93rem;
+  }
+  .row dd { margin: 0; color: var(--muted); font-size: .98rem; }
+  .row dd strong { color: var(--text); font-weight: 600; }
+
+  /* ---- steps ------------------------------------------------------- */
+  ol.steps { list-style: none; counter-reset: s; margin: 1.4rem 0 0; padding: 0; display: grid; gap: 1.5rem; }
+  ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 2rem 1fr; gap: 1rem; }
+  ol.steps > li::before {
+    content: counter(s);
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .82rem;
+    color: var(--accent); border: 1px solid var(--rule); border-radius: 50%;
+    width: 1.85rem; height: 1.85rem; display: grid; place-items: center;
+    margin-top: .12rem;
+  }
+  ol.steps h3 { margin: 0 0 .25rem; }
+  ol.steps p { margin: 0 0 .5rem; font-size: 1rem; }
+  ol.steps p:last-child { margin-bottom: 0; }
+
+  ul.plain { margin: .9rem 0; padding-left: 1.1rem; }
+  ul.plain li { margin-bottom: .4rem; }
+
+  /* ---- code -------------------------------------------------------- */
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .85em;
+    background: var(--raised); border-radius: 2px; padding: .1em .38em;
+    color: var(--text);
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .84rem;
+    background: var(--surface); border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+    border-radius: 2px; padding: .9rem 1rem; margin: 1rem 0;
+    overflow-x: auto; line-height: 1.55; color: var(--text);
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  /* ---- callouts ---------------------------------------------------- */
+  .note {
+    background: var(--accent-soft); border-left: 2px solid var(--accent);
+    border-radius: 0 2px 2px 0; padding: 1rem 1.15rem; margin: 1.4rem 0;
+    font-size: 1rem;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .warn { background: var(--amber-soft); border-left-color: var(--amber); }
+
+  blockquote {
+    margin: 1.5rem 0; padding: 0 0 0 1.15rem; border-left: 2px solid var(--rule);
+    font-size: 1.12rem; color: var(--text); font-style: italic;
+  }
+  blockquote p { margin: 0; }
+
+  .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--faint); border: 1px solid var(--rule); border-radius: 2px;
+    padding: .14rem .45rem; white-space: nowrap;
+  }
+
+  footer {
+    margin-top: 4.5rem; padding-top: 1.6rem; border-top: 1px solid var(--rule);
+    font-size: .9rem; color: var(--faint);
+  }
+  footer p { margin: 0 0 .4rem; }
+
+  a { color: var(--accent); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  @media (max-width: 34rem) {
+    body { font-size: 17px; }
+    .page { padding: 2.5rem 1.15rem 4rem; }
+    .row { grid-template-columns: 1fr; gap: .15rem; }
+    .rung { grid-template-columns: 3.4rem 1fr; gap: .9rem; }
+  }
+
+  /* ---- the access table, generated from app/lib/roles.ts ----------- */
+  .access { display: flex; flex-direction: column; margin: 1.2rem 0; }
+  .arow {
+    display: grid; grid-template-columns: 1fr auto; gap: 1.2rem;
+    align-items: baseline; padding: .72rem 0; border-top: 1px solid var(--rule);
+  }
+  .arow:first-child { border-top: 0; }
+  .acan { font-size: .98rem; }
+  .aval {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .8rem;
+    color: var(--accent); text-align: right; white-space: nowrap;
+  }
+  .arow.no .acan { color: var(--muted); }
+  .arow.no .aval { color: var(--faint); }
+</style>
+
+<div class="page">
+  <header class="mast">
+    <p class="eyebrow">iHelp Robotics · the lead handbook</p>
+    <h1>If you run a pod</h1>
+    <p class="standfirst">You put names on work, unblock it, and decide leave. Everything you need to do that is an artifact, not a report somebody wrote for you.</p>
+    <a class="url" href="https://ihelp-ops-ai-decodeds-projects.vercel.app">ihelp-ops-ai-decodeds-projects.vercel.app</a>
+  </header>
+
+  <div class="thesis">
+    <p class="big">Nobody types how far along they are.</p>
+    <p>There is no “80% done” box anywhere in this platform, and there never will be. A task moves because something real happened: a branch appeared, a commit landed, a pull request opened, a person approved it, it merged.</p>
+    <p><strong>You cannot fall behind by forgetting to update a status.</strong> If you did the work, the platform already knows.</p>
+    <p><strong>You also cannot get ahead by saying you did.</strong> Nobody can, including the founder.</p>
+  </div>
+
+  <section>
+    <h2>Your day</h2>
+    <p class="lede">Pod leads. Whoever is named in somebody’s lead_email.</p>
+    <dl class="rows">
+      <div class="row"><dt>Morning</dt><dd>Open <strong>Analytics</strong>. Two numbers decide your day: <em>claimed, not proven</em> — tasks with a name and no artifact behind them — and <em>stalled</em>, anything untouched for three days. Neither is a naughty list; both are a prompt to ask.</dd></div>
+      <div class="row"><dt>Assigning</dt><dd>Anything under “nobody’s name on it” on <strong>Team</strong> is unclaimed. Open the task and use <strong>Assign to…</strong>. You can also move a task off somebody who is stuck, away, or gone — that is the whole reason the power exists.</dd></div>
+      <div class="row"><dt>Reviewing</dt><dd>Pull requests waiting on a human show on each task. <em>Review wait</em> on Analytics tells you if you are the bottleneck before anybody complains about it.</dd></div>
+      <div class="row"><dt>Leave</dt><dd>Requests from your reports appear under <strong>Waiting on you</strong> on the Leave screen. A rejection needs a written reason — they read it on their own page.</dd></div>
+      <div class="row"><dt>Weekly</dt><dd>1:1s. What was said stays with the pair; what was agreed becomes a goal or a task and travels normally.</dd></div>
+    </dl>
+  </section>
+
+  <section>
+    <h2>What you can do</h2>
+    <p class="lede">Generated from the same file the platform enforces, so it cannot describe a permission you do not have.</p>
+    <div class="access">
+      <div class="arow">
+        <span class="acan">Sign in and read the board, team and analytics</span>
+        <span class="aval">yes</span>
+      </div>
+      <div class="arow">
+        <span class="acan">Book and withdraw your own leave</span>
+        <span class="aval">yes</span>
+      </div>
+      <div class="arow">
+        <span class="acan">Take an unassigned task</span>
+        <span class="aval">with GitHub linked</span>
+      </div>
+      <div class="arow">
+        <span class="acan">Start a task, open a pull request, merge, comment</span>
+        <span class="aval">with GitHub linked</span>
+      </div>
+      <div class="arow">
+        <span class="acan">Dispatch agents</span>
+        <span class="aval">up to your tier</span>
+      </div>
+      <div class="arow">
+        <span class="acan">Assign work to other people, and reassign</span>
+        <span class="aval">yes</span>
+      </div>
+      <div class="arow">
+        <span class="acan">Approve or reject leave</span>
+        <span class="aval">your reports</span>
+      </div>
+      <div class="arow">
+        <span class="acan">Read somebody else's leave and balance</span>
+        <span class="aval">your reports</span>
+      </div>
+      <div class="arow no">
+        <span class="acan">Read a 1:1 you did not write</span>
+        <span class="aval">no</span>
+      </div>
+      <div class="arow no">
+        <span class="acan">Read feedback written about somebody else</span>
+        <span class="aval">no</span>
+      </div>
+      <div class="arow">
+        <span class="acan">See who was nudged, and local editor sessions</span>
+        <span class="aval">your reports</span>
+      </div>
+      <div class="arow no">
+        <span class="acan">Change roles, tiers, pods and GitHub logins</span>
+        <span class="aval">no</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Worth knowing</h2>
+    <div class="note"><p><strong>You decide leave only for your own reports.</strong> Matched on their <code>lead_email</code> being your address. The CTO and founder decide for everybody.</p></div>
+    <div class="note"><p><strong>You cannot read a 1:1 you did not write.</strong> Not for your own reports either. Only the CTO can, and every such read appears in that person’s access log.</p></div>
+    <div class="note"><p><strong>You do not need a GitHub account to assign work.</strong> The platform assigns with its own credentials. Only <em>doing</em> the work needs a linked account.</p></div>
+  </section>
+
+  <section>
+    <h2>How a task moves</h2>
+    <p class="lede">Seven steps, each caused by a real thing.</p>
+    <div class="ladder">
+      <div class="rung"><span class="pc">10%</span><span class="cause">The issue was opened — it may have no owner yet</span></div>
+      <div class="rung"><span class="pc">20%</span><span class="cause">A branch was created for it</span></div>
+      <div class="rung"><span class="pc">40%</span><span class="cause">The first commit landed on that branch</span></div>
+      <div class="rung"><span class="pc">60%</span><span class="cause">A pull request was opened</span></div>
+      <div class="rung"><span class="pc">75%</span><span class="cause">The automated checks passed</span></div>
+      <div class="rung"><span class="pc">90%</span><span class="cause">A human approved it</span></div>
+      <div class="rung top"><span class="pc">100%</span><span class="cause">It was merged</span></div>
+    </div>
+    <p>A task stuck at 10% means nothing has happened — not that somebody forgot to update it.</p>
+  </section>
+
+  <section>
+    <h2>If something looks wrong</h2>
+    <dl class="rows">
+      <div class="row"><dt>Everything says 10%</dt><dd>No GitHub activity has reached the platform. The board says so rather than showing a quiet week</dd></div>
+      <div class="row"><dt>Merge was refused</dt><dd>Branch protection. A required review or check is missing — working as intended</dd></div>
+      <div class="row"><dt>My commits aren’t showing</dt><dd>The commit hook isn’t installed in that clone. Run <code>git config core.hooksPath .githooks</code> and push again</dd></div>
+      <div class="row"><dt>There’s no Take it button</dt><dd>Either the task already has an owner — it says who — or your GitHub account isn’t linked</dd></div>
+      <div class="row"><dt>The same number twice</dt><dd>Different tasks in different repositories. Issue numbers restart in each one</dd></div>
+    </dl>
+    <p>Every error in this platform says what failed and what to check. One that doesn’t is worth reporting.</p>
+  </section>
+
+  <footer>
+    <p>The handbook covering everything, for everybody, is the one to read once. This one is the part that is yours.</p>
+    <p>Questions about the platform go to the founder. Questions about a task go on the task.</p>
+  </footer>
+</div>

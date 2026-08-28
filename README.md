@@ -21,6 +21,22 @@ npm run dev
 
 Full instructions: `docs/08-complete-build-guide.md`.
 
+## The handbooks
+
+`docs/10-using-the-platform.md` covers everything, for everybody. Four shorter
+handbooks cover one role each — what that person can do, and what their day
+looks like:
+
+```bash
+node ops/handbooks/build.mjs     # -> ops/handbooks/{member,lead,cto,founder}.html
+```
+
+They are generated, not written. The access table in each comes from
+`app/lib/roles.ts` — the same file `/admin` renders and the checks import — so a
+permission cannot change in the code without changing in every handbook, and
+cannot be described in a handbook without being real. Rebuild after touching
+roles.
+
 ## Check it
 
 Each of these refuses to run without a real database, because a check that
