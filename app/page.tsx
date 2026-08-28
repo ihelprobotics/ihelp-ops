@@ -7,20 +7,10 @@ import Nav from "@/app/ui/nav";
 import { isAdmin } from "@/app/lib/roles";
 
 /* Agent grid. Tier decides who may dispatch what — the same rule the API
-   enforces server-side. Locked tiles stay visible with the reason showing:
-   a greyed tile that explains itself teaches, a missing tile just confuses. */
-const AGENTS = [
-  { id: "scribe",       name: "Scribe",        blurb: "Docs, runbooks, handovers",        tier: "week1" },
-  { id: "annotator",    name: "Data Annotator",blurb: "Pre-labels for human checking",    tier: "week1" },
-  { id: "qa",           name: "QA",            blurb: "Tests, eval harnesses, reports",   tier: "week1" },
-  { id: "frontend",     name: "Frontend",      blurb: "Dashboards and operator UI",       tier: "week2" },
-  { id: "fullstack",    name: "Full-stack",    blurb: "APIs, models, business logic",     tier: "full"  },
-  { id: "ai-developer", name: "AI Developer",  blurb: "Training, eval, model integration",tier: "full"  },
-  { id: "integrator",   name: "Integrator",    blurb: "Wiring, contract tests",           tier: "full"  },
-  { id: "architect",    name: "Architect",     blurb: "ADRs and design review",           tier: "full"  },
-];
-
-const TIER_RANK = { week1: 1, week2: 2, full: 3 };
+   enforces server-side, from the same roster it reads. Locked tiles stay
+   visible with the reason showing: a greyed tile that explains itself teaches,
+   a missing tile just confuses. */
+import { AGENTS, TIER_RANK } from "@/app/lib/agents";
 
 const OWNER_ONLY = [
   { name: "Deployer",  why: "Draft tier — the CTO triggers production" },

@@ -14,9 +14,26 @@ schema carries a comment saying this, so nobody adds it later.
 Same for goals: report evidence linked and evidence landed as counts, never a
 score against a person's name.
 
-**Real-time chat.** Discord does DMs, presence, threads, mobile and
+**Chat between people.** Discord does DMs, presence, threads, mobile and
 notifications properly. Build task comments that mirror to GitHub issue
 comments. Ingest Discord *channels and threads* for the record — **never DMs.**
+
+This originally read "real-time chat" without the qualifier, and on
+2026-08-28 a conversation with an *agent* was added to the task page, which the
+old wording forbade. The reasons behind the ban are all about people talking to
+each other — presence, mobile, notifications, DMs — and none of them apply to
+asking the QA agent what a test is for. What does still apply, and is kept:
+
+- Nothing said to an agent is a record of work. Status is still derived from
+  artifacts. A conversation moves nothing.
+- A conversation belongs to the person who had it. No lead, CTO or founder can
+  read it — `db/schema-chat.sql` has one policy clause and no admin escape, and
+  `npm run test:chat` signs in as a founder and proves they cannot.
+- There is no presence, no unread count, no notification, and no way to send a
+  message to another human. Those are the parts Discord does better.
+
+See "Where agents run" in `docs/01-architecture.md` for what the conversation
+can and cannot do.
 
 **A second approval system.** GitHub branch protection and CODEOWNERS decide
 who approves. The platform's merge button calls the API and can be refused;

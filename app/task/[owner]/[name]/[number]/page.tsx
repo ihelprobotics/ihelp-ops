@@ -27,6 +27,9 @@ import { TASK_CSS } from "./css";
 import TaskActions from "./actions";
 import Assignee from "./assignee";
 import Evidence from "./evidence";
+import Chat from "./chat";
+import { withUser } from "@/lib/db";
+import { CHAT_AGENTS } from "@/app/lib/agents";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +81,29 @@ export default async function TaskPage({
         select name, gh_login from app_user
          where active and gh_login is not null order by name nulls last`
     : [];
+
+  // The stored conversation, read as this person so the chat policies apply.
+  // A failure here must not take the task page down — the chat simply starts
+  // empty and the reason is on the server log, not in the reader's way.
+  let chatHistory: { agent: string; messages: any[] } = { agent: CHAT_AGENTS[0], messages: [] };
+  if (session?.user?.id && repo) {
+    try {
+      chatHistory = await withUser(session.user.id, session.user.role ?? "member", async (tx) => {
+        const [t] = await tx<any[]>`
+          select id, agent from chat_thread
+           where user_id = ${session.user.id} and repo = ${repo} and issue_number = ${n}
+           order by created_at desc limit 1`;
+        if (!t) return { agent: CHAT_AGENTS[0], messages: [] };
+        const rows = await tx<any[]>`
+          select role, content, cost_usd from chat_message
+           where thread_id = ${t.id} order by created_at, id limit 100`;
+        return {
+          agent: t.agent,
+          messages: rows.map((r) => ({ role: r.role, content: r.content, cost: r.cost_usd ? Number(r.cost_usd) : undefined })),
+        };
+      });
+    } catch { /* start empty */ }
+  }
 
   return (
     <main className="wrap">
@@ -145,6 +171,19 @@ export default async function TaskPage({
                     ? "Link your GitHub account before starting work. Branches, pull requests and comments are attributed by GitHub login."
                     : "Sign in to start this task."
                 }
+              />
+            </div>
+          </section>
+
+          <section>
+            <h2>Ask an agent</h2>
+            <div className="card">
+              <Chat
+                owner={p.owner}
+                name={p.name}
+                issue={task.number}
+                initialAgent={chatHistory.agent}
+                history={chatHistory}
               />
             </div>
           </section>

@@ -59,6 +59,14 @@ export const PERMISSIONS: Permission[] = [
     member: "up to your tier", lead: "up to your tier", cto: "up to your tier", founder: "any",
     where: "TIERS in /api/agents/run" },
 
+  { what: "Talk to any agent about a task",
+    member: YES, lead: YES, cto: YES, founder: YES,
+    where: "/api/chat — tiers gate dispatch, not conversation" },
+
+  { what: "Read somebody else's conversation with an agent",
+    member: NO, lead: NO, cto: NO, founder: NO,
+    where: "chat_thread_own / chat_message_own — one clause, no admin escape" },
+
   { what: "Assign work to other people, and reassign",
     member: NO, lead: YES, cto: YES, founder: YES,
     where: "assignsOthers() in app/lib/assign.ts" },

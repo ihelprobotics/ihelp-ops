@@ -9,19 +9,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
 
-// Graduated access, from the operating model. A new joiner gets agents whose
-// mistakes are visible and harmless; the rest unlock as they learn what good
-// looks like in this codebase.
-const TIERS: Record<string, string[]> = {
-  week1: ["scribe", "annotator", "qa"],
-  week2: ["scribe", "annotator", "qa", "frontend"],
-  full: ["scribe", "annotator", "qa", "frontend", "fullstack", "ai-developer", "integrator", "architect"],
-};
-
-// Draft and advisory agents are never dispatched from the platform. Their human
-// owner runs them, because their output leaves the company or changes
-// production.
-const HUMAN_OWNER_ONLY = ["deployer", "cloud", "social", "outreach", "leadgen"];
+// Graduated access and the draft-tier exclusion both come from the shared
+// roster in app/lib/agents.ts, so the board, the chat picker and this gate
+// cannot disagree about which agents exist.
+import { TIERS, HUMAN_OWNER_ONLY } from "@/app/lib/agents";
 
 export async function POST(req: Request) {
   const session = await auth();

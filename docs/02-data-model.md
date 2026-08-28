@@ -8,6 +8,7 @@ do not create tables in application code.
 | `schema.sql` | `app_user`, `agent_run`, `gh_event`, `commit_event`; views `cycle_time`, `review_latency` |
 | `schema-people.sql` | Identity columns, `leave_request`, `leave_balance`, `notification_log`, `local_session`; views `leave_taken`, `on_leave_today` |
 | `schema-people-growth.sql` | `goal`, `goal_evidence`, `one_on_one`, `feedback_note`, `note_access_log`; row-level security; view `goal_progress` |
+| `schema-chat.sql` | `chat_thread`, `chat_message`; row-level security with no admin clause |
 | `schema-constraints.sql` | Normalises `gh_login`, then constrains it to a real GitHub username |
 
 `schema-constraints.sql` runs last because it repairs data before it restricts
@@ -43,6 +44,15 @@ pr_opened, pr_merged, review_submitted), `repo`, `number`, `actor`,
 
 **`local_session`** — agent sessions on people's own machines. Soft evidence.
 
+**`chat_thread`** — one conversation per person, per agent, per task
+(`unique (user_id, repo, issue_number, agent)`), so reopening a task continues
+where you left off rather than starting a thread nobody asked for.
+
+**`chat_message`** — `role` (`user` or `assistant`), `content`, and
+`input_tokens` / `output_tokens` / `cost_usd`. The same discipline as
+`agent_run`: a conversation with an agent is money, and money nobody can see is
+money nobody manages.
+
 ## Derived progress
 
 Read from `gh_event`. Never stored on the task, never typed.
@@ -59,8 +69,9 @@ Read from `gh_event`. Never stored on the task, never typed.
 
 ## Row-level security
 
-Applies to `goal`, `goal_evidence`, `one_on_one`, `feedback_note`. Both ENABLE
-and FORCE are set. Unset context returns no rows — fail closed.
+Applies to `goal`, `goal_evidence`, `one_on_one`, `feedback_note`,
+`chat_thread` and `chat_message`. Both ENABLE and FORCE are set. Unset context
+returns no rows — fail closed.
 
 Session context is set per transaction, and **the context and the query must be
 in the same transaction.** Use `withUser` from `lib/db.ts`:
@@ -95,6 +106,28 @@ policies do not apply to superusers and a pass under one would mean nothing.
 These four tables have no DELETE policy. Notes are append-only through the
 application: the author may correct one for seven days, and nobody may remove
 one. A note that can be quietly deleted is worse than no note.
+
+### The chat tables are the other way round
+
+`chat_thread` and `chat_message` invert both halves of that, deliberately.
+
+**They have a DELETE policy and no UPDATE policy.** You may delete your own
+conversation — a scratchpad you cannot clear is not a scratchpad. You may not
+edit one, not even your own words: a transcript that can be rewritten after the
+fact is one nobody can rely on, including the person who wrote it.
+
+**They have no admin clause.** `feedback_note` lets the CTO read everything and
+logs each read. The chat policies are one clause — `user_id =
+app_current_user()` — and there is no equivalent power, so there is nothing to
+log. A founder who can read every conversation every engineer has had with an
+agent is a different product from this one.
+
+This is also the only place the platform stores what somebody typed;
+`local_session` records that a session happened and deliberately not a word of
+its content. The reason a conversation is allowed to break that rule is the
+three properties above: it is readable by one person, it is not a record of
+work, and it can be deleted. `npm run test:chat` asserts all three, including
+by signing in as a founder and failing to read an engineer's conversation.
 
 ## Erasure
 

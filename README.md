@@ -12,10 +12,10 @@ person types how far along they are.
 
 ```bash
 npm install
-cp .env.example .env.local     # fill in the eight values
+cp .env.example .env.local     # fill in the values it names
 # apply db/schema.sql, then schema-people.sql, schema-people-growth.sql,
 # then schema-note-access.sql, schema-leave-rls.sql, schema-ledger-rls.sql,
-# schema-role-audit.sql, then schema-constraints.sql
+# schema-role-audit.sql, schema-chat.sql, then schema-constraints.sql
 npm run dev
 ```
 
@@ -38,11 +38,18 @@ cannot be described in a handbook without being real. Rebuild after touching
 roles.
 
 `docs/handbooks/*.pdf` are the same five documents, printed for handing out —
-A4, light palette, page numbers. They are rendered from the HTML by a headless
-browser rather than written separately, so the PDF and the page cannot say
-different things. Regenerate them after a rebuild; anything that can print a
-page to PDF will do, and the settings used were A4, print background on,
-16/18/15/15mm margins.
+A4, light palette, page numbers.
+
+```bash
+node ops/handbooks/pdf.mjs        # -> docs/handbooks/*.pdf  (run build.mjs first)
+```
+
+They are rendered from the HTML by a headless browser rather than written
+separately, so the PDF and the page cannot say different things. The full
+handbook comes from `docs/10` through a small Markdown subset in the same
+script — no renderer dependency for one file, and it asserts nothing was
+dropped. The script borrows whichever Chromium is already installed; if it finds
+none it says where it looked and gives the print settings to do it by hand.
 
 ## Check it
 
@@ -57,6 +64,7 @@ npm run test:pages      # the four screens, signed in as three people (needs npm
 npm run test:analytics  # every figure on /analytics, from seeded rows  (needs npm run dev)
 npm run test:assign     # who may take work, across every repo      (needs npm run dev)
 npm run test:admin      # roles, tiers, and who may change them     (needs npm run dev)
+npm run test:chat       # talking to an agent, and who cannot read it (needs npm run dev)
 ```
 
 `test:webhook` and `test:pages` take `WEBHOOK_URL` / `PAGE_URL` to run against
@@ -79,10 +87,17 @@ assert that they left nothing behind.
 
 `CLAUDE.md` is loaded automatically by Claude Code in every session.
 
-## One external dependency
+## Two dependencies outside this app
 
-Agents do not run inside this app. `POST /api/agents/run` dispatches a GitHub
+**Agents that change code do not run here.** `POST /api/agents/run` dispatches a GitHub
 Actions workflow named `agent-run.yml`, which must live in whichever repository
 the agents work on — set that repo as `OPS_REPO`. That workflow, the agent
 definitions in `.claude/agents/`, and `CODEOWNERS` are the only pieces of this
 system that live outside this project.
+
+**Talking to an agent calls Claude directly.** `POST /api/chat` streams an
+answer back to the task page, and needs `ANTHROPIC_API_KEY` in this app's own
+environment — the agent-run workflow's copy is a GitHub Actions secret, which is
+write-only and cannot be read back. That conversation can read the repository
+and nothing else: no edit, no commit, no pull request. Without the key the route
+says so by name and the rest of the platform is unaffected.

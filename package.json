@@ -13,12 +13,14 @@
     "test:analytics": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/analytics-check.mjs",
     "digest": "node --env-file-if-exists=.env.local ops/daily-email.mjs",
     "test:assign": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/assign-check.mjs",
-    "test:admin": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/admin-check.mjs"
+    "test:admin": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/admin-check.mjs",
+    "test:chat": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/chat-check.mjs"
   },
   "dependencies": {
-    "postgres": "^3.4.5",
+    "@anthropic-ai/sdk": "^0.122.0",
     "next": "^15.1.0",
     "next-auth": "^5.0.0-beta.25",
+    "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

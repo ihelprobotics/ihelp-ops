@@ -49,6 +49,7 @@ const ROLE = {
       ["End of day", "Nothing. There is no timesheet, no standup form, no status to file. If you pushed something, it is already visible."],
     ],
     notes: [
+      ["Ask the agent before you ask a person.", "It has read the task and the repository, it answers in seconds, and nobody sees that you asked. It is also the fastest way to find out whether a task is bigger than it looks."],
       ["You cannot take a task somebody else holds.", "The platform names who has it. Go and ask them — they may be stuck, finished, or glad to hand it over."],
       ["Handing work back is normal.", "If a task is yours and you have not started, press <strong>Hand it back</strong>. No explanation owed. An honest hand-back beats a task sitting under your name for three weeks."],
       ["You own what an agent produced for you.", "Your name goes on the pull request. Read every line and be ready to explain it. “The agent wrote it” is not an answer, and the platform records who asked for the run."],
@@ -68,6 +69,7 @@ const ROLE = {
       ["Weekly", "1:1s. What was said stays with the pair; what was agreed becomes a goal or a task and travels normally."],
     ],
     notes: [
+      ["A conversation is not evidence.", "You cannot read your reports’ conversations with agents, and that is deliberate. Judge the work by what landed. If somebody says an agent told them something, ask them to put it on the issue."],
       ["You decide leave only for your own reports.", "Matched on their <code>lead_email</code> being your address. The CTO and founder decide for everybody."],
       ["You cannot read a 1:1 you did not write.", "Not for your own reports either. Only the CTO can, and every such read appears in that person’s access log."],
       ["You do not need a GitHub account to assign work.", "The platform assigns with its own credentials. Only <em>doing</em> the work needs a linked account."],
@@ -87,6 +89,7 @@ const ROLE = {
       ["Accounts", "<strong>Admin</strong> is where roles, agent tiers and GitHub logins are set. Setting somebody’s GitHub login is the thing that turns an account into a person who can own work."],
     ],
     notes: [
+      ["You cannot read anybody’s agent conversations.", "The policy has one clause and no admin escape, and <code>npm run test:chat</code> proves it by signing in as a founder and failing to read one. If that ever needs to change, it is a schema change with a written reason, not a setting."],
       ["You cannot change your own row.", "Nobody can, including you. A role change should be something a second person agreed to."],
       ["The last admin is protected.", "Nothing can demote or deactivate the only remaining admin — the way back would be a hand-written SQL statement against production."],
       ["Every role change is recorded.", "Who, when, and what it was before. The person it was about reads it on their own page, and nobody can edit or remove a line."],
@@ -106,6 +109,7 @@ const ROLE = {
       ["Accounts", "<strong>Admin</strong>: roles, tiers, GitHub logins, and the record of every change ever made to them."],
     ],
     notes: [
+      ["Chat spend shows up as chat spend.", "Every conversation records its tokens and cost the way an agent run does. What was said is private; what it cost is not."],
       ["You cannot read other people’s 1:1 notes.", "The CTO alone can. If that should change it is one line in <code>db/schema-people-growth.sql</code> — a deliberate decision, made in the open, not a setting."],
       ["You cannot change your own row either.", "Same rule as everybody. Ask the CTO."],
       ["No hours, anywhere.", "There is no time-online, no presence, no session table, and there will not be. The moment those sit next to merged work, people optimise the easier number."],
@@ -124,6 +128,18 @@ const THESIS = `
     <p><strong>You cannot fall behind by forgetting to update a status.</strong> If you did the work, the platform already knows.</p>
     <p><strong>You also cannot get ahead by saying you did.</strong> Nobody can, including the founder.</p>
   </div>`;
+
+const TALK = `
+  <section>
+    <h2>Talking to an agent</h2>
+    <p class="lede">Every task page has a conversation. Four things about it are worth knowing before you use it.</p>
+    <dl class="rows">
+      <div class="row"><dt>It can read, not write</dt><dd>The agent sees the task, its comments and its own brief from the repository, and will read the code with you, review an approach, or say plainly that it does not know. It cannot edit a file, commit or open a pull request from the conversation. When the work needs doing, press <strong>Run</strong> — that dispatches the same agent into GitHub Actions, where it opens a pull request somebody reviews</dd></div>
+      <div class="row"><dt>It is private, and it is not the record</dt><dd>Nobody else can read your conversations — not your lead, not the CTO, not the founder. Nothing said in one moves a task or counts as work. If something from it matters, put it on the issue as a comment. That is the record; this is the thinking</dd></div>
+      <div class="row"><dt>Any agent, from your first day</dt><dd>Tiers decide which agents you may <em>dispatch</em>, because a dispatched agent changes code. Talking changes nothing, so you may talk to all eight — including the architect</dd></div>
+      <div class="row"><dt>It costs money</dt><dd>Each answer shows what it cost, usually a fraction of a cent. It is charged to the company like any agent run</dd></div>
+    </dl>
+  </section>`;
 
 const LADDER = `
   <section>
@@ -201,6 +217,7 @@ ${accessTable(role)}
     <h2>Worth knowing</h2>
 ${notes}
   </section>
+${TALK}
 ${LADDER}
 
   <section>

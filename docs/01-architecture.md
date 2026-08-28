@@ -24,7 +24,7 @@
                           VM destroyed
 ```
 
-## Agent execution — the two paths
+## Agent execution — the three paths
 
 **Path A, dispatched from the platform.** `POST /api/agents/run` records a row
 in `agent_run`, then calls the GitHub workflow-dispatch API. The workflow
@@ -39,8 +39,46 @@ disableable. Use it for "how is the team using agents", never for
 accountability. The hard record is the commit and the PR, which arrive through
 the signed webhook.
 
-Both paths read the same agent definitions from the code repo. That is the
-point of keeping them in git.
+**Path C, a conversation on the task page.** `POST /api/chat` calls Claude
+directly and streams the answer back as Server-Sent Events. This is the only
+place the platform calls a model itself, and it is narrow on purpose: the
+conversation can read the task, its comments and the agent's own brief, and it
+has **no tool that writes**. It cannot edit a file, commit, push or open a pull
+request, and the system prompt says so in those words — an agent that believes
+it can write code describes edits as though it has made them, and the reader
+believes it.
+
+So the fast thing stays cheap and the consequential thing stays evidenced.
+Asking the architect whether an approach is sound costs a cent and takes
+seconds; changing the code still goes through Path A, sandboxed, ending in a
+pull request a human reviews.
+
+Three consequences worth stating, because they are the ones people assume the
+other way round:
+
+- **A conversation is not a record of work.** Nothing said in one moves a task.
+  Progress is still derived from artifacts. If something from a conversation
+  matters, it goes on the issue as a comment, which is public and is the record.
+- **A conversation is private to the person who had it.** Not their lead's, not
+  the CTO's, not the founder's. `db/schema-chat.sql` has one policy clause and
+  no admin escape; `npm run test:chat` signs in as a founder and proves it.
+  This is the one place the platform stores what somebody typed, and the reason
+  it is allowed to is that nobody else can read it — the same trade
+  `local_session` refuses to make, for the same reason.
+- **Tiers do not gate it.** `week1`, `week2` and `full` gate *dispatch*,
+  because a dispatched agent changes code. Talking changes nothing, so gating it
+  would only stop a new joiner learning what the architect thinks.
+
+The one thing this path needs that the others do not is `ANTHROPIC_API_KEY` in
+the platform's own environment. The workflow has its own copy as a GitHub
+Actions secret; that copy is write-only and cannot be read back, so this is a
+second copy of the same key rather than a way to share one.
+
+All three paths read the same agent definitions from the code repo — Path A and
+B by checking it out, Path C by fetching `.claude/agents/<name>.md` through the
+API. The qa agent you talk to has the standards of the qa agent that opens the
+pull request, rather than being a second personality with the same name. That is
+the point of keeping them in git.
 
 ## Authentication for agents
 

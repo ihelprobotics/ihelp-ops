@@ -227,8 +227,55 @@ refusal is the protection working, not a broken button.
 
 ## Using an agent
 
-Agents are AI teammates. You pick a task, press **Run** on an agent, and a few
+Agents are AI teammates. There are two ways to work with one, and the difference
+between them is the whole point.
+
+**Talk to it** — the conversation on every task page. It reads, thinks and
+answers in seconds, and changes nothing.
+
+**Run it** — the **Run** button. It goes to work in GitHub Actions and a few
 minutes later there's a pull request waiting for you.
+
+The fast thing is cheap. The consequential thing is evidenced. Use the first to
+work out what to do, and the second to do it.
+
+### Talking to one
+
+Open a task, scroll to **Ask an agent**, pick who you want and type. The answer
+streams back as it's written.
+
+The agent has read the task, its comments, and its own brief from the
+repository — so the QA agent you're talking to holds the same standards as the
+QA agent that opens the pull request. Ask it what a task actually needs, how the
+code around it works, whether your approach is sound, or what it would need to
+read before it could tell you. If it doesn't know, it says so and names what it
+would need. That is a better answer than a confident wrong one.
+
+**It cannot change anything.** No edits, no commits, no pull requests — those
+tools don't exist in the conversation. If it ever describes an edit as though it
+made one, it is wrong and you should not believe it. To get code changed, press
+**Run**.
+
+**The conversation is yours.** Nobody else can read it — not your lead, not the
+CTO, not the founder. There's no admit-the-boss setting; the database policy has
+one clause and `npm run test:chat` proves it by signing in as a founder and
+failing to read one.
+
+**It is not the record.** Nothing you say to an agent moves a task, and nothing
+it says counts as evidence of anything. If something from the conversation
+matters — a decision, a risk, a reason — put it on the issue as a comment. That
+is public, it's on GitHub, and it's what the next person will read.
+
+You can talk to all eight agents from your first day, whatever your tier: the
+tiers below gate **Run**, not conversation. Each answer shows what it cost,
+usually a fraction of a cent.
+
+You can delete a conversation. You cannot edit one after the fact — not even
+your own words. A transcript you can rewrite is one nobody can rely on,
+including you.
+
+### Running one
+
 
 ### What you can run depends on your tier
 
@@ -307,6 +354,19 @@ This is enforced by the database itself, not by a policy anyone can forget.
 
 If a colleague opens your page and sees nothing under 1:1s, the page tells them
 *why* it's empty rather than pretending you have no record.
+
+### Your conversations with agents
+
+Stricter than notes: **nobody but you.** Not your lead, not the CTO, not the
+founder — there is no equivalent of the CTO's read-all-notes power here, and no
+access log because there is no access to log.
+
+That is the trade that makes storing them acceptable at all. This is the only
+place in the platform that keeps what somebody typed; `local_session` records
+that an editor session happened and deliberately not a word of what was in it.
+A conversation can only be kept because a conversation with no history is not a
+conversation — and because it is yours, it is not evidence of anything, and you
+can delete it.
 
 ---
 

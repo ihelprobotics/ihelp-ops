@@ -240,4 +240,71 @@ export const BASE_CSS = `
     .row .when { flex-basis: 100%; }
     .nums { gap: 22px; }
   }
+
+  /* ---- talking to an agent ------------------------------------------
+     A conversation reads as a conversation: the two sides sit on opposite
+     edges, yours on the accent, theirs on the sunken ground, so a glance
+     tells you who said what without reading a name. The message list has a
+     fixed height and scrolls inside itself — otherwise a long exchange pushes
+     the evidence below it off the bottom of the world. */
+  .chat { display: flex; flex-direction: column; gap: 12px; }
+
+  .chat-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .chat-top select { min-width: 160px; }
+
+  .msgs {
+    display: flex; flex-direction: column; gap: 14px;
+    max-height: 460px; overflow-y: auto; padding: 2px;
+    scroll-behavior: smooth;
+  }
+
+  .msg { display: flex; flex-direction: column; gap: 4px; max-width: 86%; }
+  .msg.user      { align-self: flex-end;   align-items: flex-end; }
+  .msg.assistant { align-self: flex-start; align-items: flex-start; }
+
+  .msg .from {
+    font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .msg .body {
+    margin: 0; padding: 10px 14px; border-radius: 16px;
+    font-size: 15px; line-height: 1.55; white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  /* Inline code inside a bubble. The global rule tints it grey, which on the
+     accent-coloured side of the conversation disappears entirely. */
+  .msg .body code { font-size: .88em; }
+  .msg.user .body code { background: rgba(255,255,255,.22); color: #fff; }
+  .msg.assistant .body code { background: rgba(118,118,128,.13); }
+  .msg .body strong { font-weight: 600; }
+
+  .msg.user .body {
+    background: var(--accent); color: #fff; border-bottom-right-radius: 5px;
+  }
+  .msg.assistant .body {
+    background: var(--sunken); color: var(--ink); border-bottom-left-radius: 5px;
+    /* A hairline, because the sunken grey sits close to the card it is on and
+       without it the agent's side of the conversation loses its edges. */
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+
+  /* The model's working-out while you wait for the answer. Dimmed and
+     italic because it is not the answer — and it disappears the moment the
+     answer starts, so nobody is left reading the notes instead of the reply. */
+  .msg .thinking {
+    margin: 0; padding: 8px 14px; border-radius: 14px;
+    border-bottom-left-radius: 5px;
+    background: transparent; box-shadow: inset 0 0 0 1px var(--line-soft);
+    color: var(--ink-3); font-size: 13.5px; line-height: 1.5;
+    font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+
+  .ask { display: flex; gap: 10px; align-items: flex-end; }
+  .ask textarea { min-height: 46px; }
+  .ask .go { flex: 0 0 auto; }
+
+  @media (max-width: 640px) {
+    .msg { max-width: 94%; }
+    .msgs { max-height: 60vh; }
+  }
 `;

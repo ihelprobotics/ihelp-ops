@@ -284,6 +284,14 @@
         <span class="aval">up to your tier</span>
       </div>
       <div class="arow">
+        <span class="acan">Talk to any agent about a task</span>
+        <span class="aval">yes</span>
+      </div>
+      <div class="arow no">
+        <span class="acan">Read somebody else's conversation with an agent</span>
+        <span class="aval">no</span>
+      </div>
+      <div class="arow">
         <span class="acan">Assign work to other people, and reassign</span>
         <span class="aval">yes</span>
       </div>
@@ -316,9 +324,21 @@
 
   <section>
     <h2>Worth knowing</h2>
+    <div class="note"><p><strong>You cannot read anybody’s agent conversations.</strong> The policy has one clause and no admin escape, and <code>npm run test:chat</code> proves it by signing in as a founder and failing to read one. If that ever needs to change, it is a schema change with a written reason, not a setting.</p></div>
     <div class="note"><p><strong>You cannot change your own row.</strong> Nobody can, including you. A role change should be something a second person agreed to.</p></div>
     <div class="note"><p><strong>The last admin is protected.</strong> Nothing can demote or deactivate the only remaining admin — the way back would be a hand-written SQL statement against production.</p></div>
     <div class="note"><p><strong>Every role change is recorded.</strong> Who, when, and what it was before. The person it was about reads it on their own page, and nobody can edit or remove a line.</p></div>
+  </section>
+
+  <section>
+    <h2>Talking to an agent</h2>
+    <p class="lede">Every task page has a conversation. Four things about it are worth knowing before you use it.</p>
+    <dl class="rows">
+      <div class="row"><dt>It can read, not write</dt><dd>The agent sees the task, its comments and its own brief from the repository, and will read the code with you, review an approach, or say plainly that it does not know. It cannot edit a file, commit or open a pull request from the conversation. When the work needs doing, press <strong>Run</strong> — that dispatches the same agent into GitHub Actions, where it opens a pull request somebody reviews</dd></div>
+      <div class="row"><dt>It is private, and it is not the record</dt><dd>Nobody else can read your conversations — not your lead, not the CTO, not the founder. Nothing said in one moves a task or counts as work. If something from it matters, put it on the issue as a comment. That is the record; this is the thinking</dd></div>
+      <div class="row"><dt>Any agent, from your first day</dt><dd>Tiers decide which agents you may <em>dispatch</em>, because a dispatched agent changes code. Talking changes nothing, so you may talk to all eight — including the architect</dd></div>
+      <div class="row"><dt>It costs money</dt><dd>Each answer shows what it cost, usually a fraction of a cent. It is charged to the company like any agent run</dd></div>
+    </dl>
   </section>
 
   <section>

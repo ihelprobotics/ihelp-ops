@@ -226,3 +226,47 @@
   }
   .arow.no .acan { color: var(--muted); }
   .arow.no .aval { color: var(--faint); }
+
+
+  /* ---- the full handbook, set from docs/10-using-the-platform.md ----
+     The role handbooks are assembled from named parts and each part has a
+     class. This one is prose, so it needs plain elements to look deliberate:
+     a table that reads as rows rather than a grid, lists with room to breathe,
+     and rules that separate rather than decorate. */
+  .prose { padding-top: 1rem; }
+  .prose > h1 { margin-bottom: 1.6rem; padding-bottom: 1.4rem; border-bottom: 2px solid var(--text); }
+  .prose > h2 { margin-top: 3.2rem; }
+  .prose > h3 { margin-top: 2rem; }
+  .prose > h2 + p, .prose > h3 + p { margin-top: .4rem; }
+
+  .prose ul, .prose ol { margin: .9rem 0 1.2rem; padding-left: 1.15rem; }
+  .prose li { margin-bottom: .45rem; }
+  .prose li:last-child { margin-bottom: 0; }
+
+  .prose hr {
+    border: 0; border-top: 1px solid var(--rule); margin: 2.8rem 0 0;
+  }
+
+  .prose table {
+    width: 100%; border-collapse: collapse; margin: 1.3rem 0 1.6rem;
+    font-size: .95rem;
+  }
+  .prose th {
+    text-align: left; font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 500; font-size: .72rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--faint);
+    padding: 0 1rem .55rem 0; border-bottom: 1px solid var(--text);
+  }
+  .prose td {
+    padding: .7rem 1rem .7rem 0; border-top: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  .prose tr td:first-child { padding-right: 1.4rem; }
+  .prose td:last-child, .prose th:last-child { padding-right: 0; }
+
+  /* Keep a heading with what follows it, and never break a table row. */
+  @media print {
+    .prose h1, .prose h2, .prose h3 { break-after: avoid; }
+    .prose tr, .prose li, .prose pre { break-inside: avoid; }
+    .prose hr { break-after: page; border-top: 0; margin: 0; }
+  }

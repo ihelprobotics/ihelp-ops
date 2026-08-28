@@ -284,6 +284,14 @@
         <span class="aval">any</span>
       </div>
       <div class="arow">
+        <span class="acan">Talk to any agent about a task</span>
+        <span class="aval">yes</span>
+      </div>
+      <div class="arow no">
+        <span class="acan">Read somebody else's conversation with an agent</span>
+        <span class="aval">no</span>
+      </div>
+      <div class="arow">
         <span class="acan">Assign work to other people, and reassign</span>
         <span class="aval">yes</span>
       </div>
@@ -316,9 +324,21 @@
 
   <section>
     <h2>Worth knowing</h2>
+    <div class="note"><p><strong>Chat spend shows up as chat spend.</strong> Every conversation records its tokens and cost the way an agent run does. What was said is private; what it cost is not.</p></div>
     <div class="note"><p><strong>You cannot read other people’s 1:1 notes.</strong> The CTO alone can. If that should change it is one line in <code>db/schema-people-growth.sql</code> — a deliberate decision, made in the open, not a setting.</p></div>
     <div class="note"><p><strong>You cannot change your own row either.</strong> Same rule as everybody. Ask the CTO.</p></div>
     <div class="note"><p><strong>No hours, anywhere.</strong> There is no time-online, no presence, no session table, and there will not be. The moment those sit next to merged work, people optimise the easier number.</p></div>
+  </section>
+
+  <section>
+    <h2>Talking to an agent</h2>
+    <p class="lede">Every task page has a conversation. Four things about it are worth knowing before you use it.</p>
+    <dl class="rows">
+      <div class="row"><dt>It can read, not write</dt><dd>The agent sees the task, its comments and its own brief from the repository, and will read the code with you, review an approach, or say plainly that it does not know. It cannot edit a file, commit or open a pull request from the conversation. When the work needs doing, press <strong>Run</strong> — that dispatches the same agent into GitHub Actions, where it opens a pull request somebody reviews</dd></div>
+      <div class="row"><dt>It is private, and it is not the record</dt><dd>Nobody else can read your conversations — not your lead, not the CTO, not the founder. Nothing said in one moves a task or counts as work. If something from it matters, put it on the issue as a comment. That is the record; this is the thinking</dd></div>
+      <div class="row"><dt>Any agent, from your first day</dt><dd>Tiers decide which agents you may <em>dispatch</em>, because a dispatched agent changes code. Talking changes nothing, so you may talk to all eight — including the architect</dd></div>
+      <div class="row"><dt>It costs money</dt><dd>Each answer shows what it cost, usually a fraction of a cent. It is charged to the company like any agent run</dd></div>
+    </dl>
   </section>
 
   <section>
