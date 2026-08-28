@@ -43,6 +43,8 @@ const refused = async (label, run, code) => {
   is(label, got, code);
 };
 
+class SkipRoute extends Error {}
+
 const tag = randomUUID().slice(0, 8);
 const COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
 let fixtures = [];
@@ -174,6 +176,21 @@ try {
 
   const ok = { owner: "x", name: "y", issue: 1, agent: "qa", message: "hello" };
 
+  // Is the chat even deployed here? Run against a build that predates it, every
+  // assertion below would fail with a 404 and the last one would try to parse
+  // Next's 404 page as JSON and take the whole check down with a syntax error.
+  // A check that crashes tells you less than one that reports.
+  const probe = await post(ok);
+  if (probe.status === 404 && !(probe.headers.get("content-type") ?? "").includes("json")) {
+    console.log("FAIL /api/chat does not exist on this deployment.");
+    console.log(`     ${BASE} answered 404 with an HTML page, which means the`);
+    console.log("     build being served predates the chat. Everything above this line");
+    console.log("     tested the database and the policies and passed; nothing below");
+    console.log("     can be tested until the deployment catches up.");
+    bad++;
+    throw new SkipRoute();
+  }
+
   // The middleware turns a signed-out request away before the route runs, so
   // what comes back is the sign-in screen and not the chat. The route keeps its
   // own 401 anyway — a guard that only exists in the middleware is one edit to
@@ -198,7 +215,7 @@ try {
 
   const nope = await post({ ...ok, owner: "nobody", name: `no-such-${tag}` });
   is("a repository this platform does not report on", nope.status, 404);
-  says("  is named, not guessed at", (await nope.json()).error, "not one this platform reports on");
+  says("  is named, not guessed at", (await nope.json().catch(() => ({}))).error, "not one this platform reports on");
 
   // A sound request against a real repository. Both answers are a pass — what
   // must never happen is a bare 500 that sends somebody to the network tab.
@@ -234,6 +251,10 @@ try {
     }
   }
 
+} catch (e) {
+  // A missing route is a reported failure, not a crash. Anything else is a real
+  // fault and keeps its stack.
+  if (!(e instanceof SkipRoute)) throw e;
 } finally {
   if (fixtures.length) {
     await sql`delete from app_user where id = any(${fixtures})`;
