@@ -37,6 +37,13 @@ permission cannot change in the code without changing in every handbook, and
 cannot be described in a handbook without being real. Rebuild after touching
 roles.
 
+`docs/handbooks/*.pdf` are the same five documents, printed for handing out —
+A4, light palette, page numbers. They are rendered from the HTML by a headless
+browser rather than written separately, so the PDF and the page cannot say
+different things. Regenerate them after a rebuild; anything that can print a
+page to PDF will do, and the settings used were A4, print background on,
+16/18/15/15mm margins.
+
 ## Check it
 
 Each of these refuses to run without a real database, because a check that
