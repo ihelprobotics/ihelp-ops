@@ -10,6 +10,22 @@
 // Written out rather than pulled from a package, because each line is a
 // decision and a dependency would hide them.
 
+// Next's development bundler compiles modules with eval, so a script-src
+// without 'unsafe-eval' stops the dev server's own runtime dead. The page still
+// renders — it is server-rendered — and then nothing works: no button responds,
+// no form submits, and the browser reports it as a CSP refusal rather than
+// anything a person reading the app would connect to a header.
+//
+// It was found by driving the real page in a browser rather than by reading it:
+// a screenshot of `npm run dev` looked completely correct and every control on
+// it was dead. That is the worst shape a bug can take, so `npm run test:pages`
+// now reads this header back off a real response and asserts it permits the
+// build that response is actually shipping — and nothing more than that.
+//
+// Production does not compile with eval, so it keeps the tighter policy. This
+// is the only place the two environments differ.
+const DEV = process.env.NODE_ENV !== "production";
+
 const securityHeaders = [
   // Nothing here is meant to be embedded anywhere. Framing it is only ever
   // somebody putting an invisible copy over their own page so a person clicks
@@ -39,13 +55,18 @@ const securityHeaders = [
   //
   // 'unsafe-inline' for styles is not laziness — the styling is inlined by
   // design (docs: plain CSS in the component, no framework), and styled-jsx
-  // emits inline <style>. Scripts are 'self' only, which is the half that
-  // matters: an injected <script src> or an inline handler is refused.
+  // emits inline <style>.
+  //
+  // Scripts allow 'unsafe-inline' because the App Router streams its payload
+  // through inline <script> tags and there is no nonce to hand them. What the
+  // policy still refuses is the part that matters most: 'self' means an
+  // injected <script src="//evil"> does not load, and no external origin can
+  // be reached from the page at all.
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline'" + (DEV ? " 'unsafe-eval'" : ""),
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
       "font-src 'self' data:",

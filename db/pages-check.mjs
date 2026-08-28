@@ -92,7 +92,7 @@ async function as(person, path, init = {}) {
     redirect: "manual",
   });
   const text = res.status < 300 || res.status >= 400 ? await res.text() : "";
-  return { status: res.status, text, location: res.headers.get("location") };
+  return { status: res.status, text, location: res.headers.get("location"), headers: res.headers };
 }
 
 let people = [];
@@ -263,6 +263,42 @@ try {
   const missing = await as(cto, `/person/${randomUUID()}`);
   is("a person who does not exist is a 404, not an empty page", missing.status, 404);
   is("and a malformed id is too", (await as(cto, "/person/not-a-uuid")).status, 404);
+
+  // =======================================================================
+  console.log("\n— the policy against the bundle it is serving —");
+  // =======================================================================
+  //
+  // A content policy that forbids what the running server actually ships does
+  // not fail loudly. Every page still renders — they are server-rendered — and
+  // then nothing on them works: no button responds, no form submits, and the
+  // only trace is a console line in somebody's browser.
+  //
+  // That happened. The development bundler compiles with eval, the policy said
+  // script-src 'self' 'unsafe-inline', and `npm run dev` was completely inert
+  // while looking perfectly correct in a screenshot.
+  //
+  // So this asserts the two against each other rather than checking the header
+  // in isolation: whichever build is being served, the policy must permit it —
+  // and must not permit more than it needs.
+  const home = await as(member, "/");
+  const policy = home.headers.get("content-security-policy") ?? "";
+  const script = /script-src ([^;]*)/.exec(policy)?.[1]?.trim() ?? "";
+
+  // An unhashed chunk name is the development bundler; production hashes them.
+  const isDev = home.text.includes("/_next/static/chunks/main-app.js");
+
+  is("a content policy is served at all", policy.length > 40, true);
+  is("no external origin can be reached from the page", policy.includes("connect-src 'self'"), true);
+  is("and the page cannot be framed", policy.includes("frame-ancestors 'none'"), true);
+
+  if (isDev) {
+    is("development is being served, so the policy allows the bundler's eval",
+       script.includes("'unsafe-eval'"), true);
+  } else {
+    is("production is being served, so the policy withholds eval",
+       script.includes("'unsafe-eval'"), false);
+  }
+  console.log(`     (${isDev ? "development" : "production"} build; script-src ${script})`);
 
 } finally {
   console.log("\n— cleanup —");
