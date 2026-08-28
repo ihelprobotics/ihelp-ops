@@ -120,6 +120,25 @@ exists to prevent.
 
 There are two ways your name gets on one, and both are normal.
 
+But first somebody has to open it.
+
+### Opening a task
+
+**New task** in the header. Pick the repository, write a title, write a
+description, and press **Open the task**. It becomes a GitHub issue and you land
+on its task page at 10%.
+
+Two things to know. Your GitHub account must be linked — a task is a GitHub
+issue, and who holds it, whose commits count and who may approve it are all
+keyed on a username. And the description is not a note, it is the brief: an
+agent dispatched onto this task is given that text and nothing else. Three clear
+sentences take less time to write than reviewing the confident, wrong pull
+request that a vague one produces.
+
+You can also open one straight on GitHub — `gh issue create` or the New issue
+button — and it appears here just the same. The platform reads tasks live; it
+never keeps its own copy.
+
 ### You take it
 
 Find something on the board with **nobody has taken this** under it and press

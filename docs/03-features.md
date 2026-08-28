@@ -27,6 +27,36 @@ the repo, and `agent_run` has a row with cost.
 
 ---
 
+## `/new` — Open a task
+
+A repository, a title, a description, and a checkbox to put your own name on it.
+It creates a GitHub issue and sends you to its task page.
+
+The only screen here that writes something a person typed into GitHub. That is
+the boundary, not a contradiction: a task is the *request* for work, and
+somebody has to say what the work is. What nobody types is how far along it is.
+
+Deliberately thin. No templates, no custom fields, no workflow states — docs/06
+says not to rebuild issue tooling here because GitHub does it better, and that
+reasoning holds. The issue it produces is an ordinary issue, readable and
+editable by anyone on GitHub who has never heard of this platform.
+
+**Acceptance**
+
+- A repository not on the board is refused by name, not silently accepted.
+- An account with no `gh_login` is refused, and the page says so before
+  anything is typed rather than after.
+- The title and description reach GitHub exactly as typed. Nothing is prefixed,
+  templated or tidied — an agent reads that body as its whole brief.
+- The requester is named in the issue body. The platform holds one token, so
+  GitHub records that account as the author; the artifact has to stay true when
+  it is read somewhere else.
+- Taking it is reported separately. A task that was created but could not be
+  assigned is still a task, and must not be reported as a failure.
+- It is on the board immediately. GitHub's issue *list* lags roughly seven
+  seconds behind a create, so the new issue is carried in memory until that
+  list agrees — see `app/lib/work.ts`.
+
 ## `/task/[number]`
 - Live state: branch, commits, PR, checks, Reviewer verdict, human approval.
 - **Open in VS Code**: desktop (`vscode://vscode.git/clone?url=…`), browser

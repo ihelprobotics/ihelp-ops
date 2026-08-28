@@ -1,4 +1,4 @@
-// The four screens, in the header of each of them.
+// The screens, in the header of each of them.
 //
 // No hooks and no server-only imports, so the same component works inside the
 // client board and inside the server-rendered people pages. Which one you are
@@ -10,6 +10,7 @@ import Link from "next/link";
 
 const PAGES = [
   { href: "/", key: "board", label: "Board" },
+  { href: "/new", key: "new", label: "New task" },
   { href: "/team", key: "team", label: "Team" },
   { href: "/leave", key: "leave", label: "Leave" },
   { href: "/me", key: "me", label: "Me" },

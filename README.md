@@ -65,6 +65,7 @@ npm run test:analytics  # every figure on /analytics, from seeded rows  (needs n
 npm run test:assign     # who may take work, across every repo      (needs npm run dev)
 npm run test:admin      # roles, tiers, and who may change them     (needs npm run dev)
 npm run test:chat       # talking to an agent, and who cannot read it (needs npm run dev)
+npm run test:create     # opening a task, and what it refuses      (needs npm run dev)
 ```
 
 `test:webhook` and `test:pages` take `WEBHOOK_URL` / `PAGE_URL` to run against

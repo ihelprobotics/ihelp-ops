@@ -42,7 +42,7 @@ const ROLE = {
       "You take work, you do it, and the platform shows what happened. Nobody asks you for a status, ever.",
     who: "Engineers, data annotators, anyone whose day produces commits.",
     day: [
-      ["Morning", "Open the board. If something has your name on it, that is your day. If nothing does, find an unclaimed task and press <strong>Take it</strong> — you do not need permission, and you do not need to wait to be assigned."],
+      ["Morning", "Open the board. If something has your name on it, that is your day. If nothing does, find an unclaimed task and press <strong>Take it</strong> — you do not need permission, and you do not need to wait to be assigned. Found work nobody has written down? <strong>New task</strong> in the header, and it becomes a GitHub issue."],
       ["Starting", "Press <strong>Start task</strong>, open it in VS Code, and run <code>git config core.hooksPath .githooks</code> once per clone. That one command is what makes everything you push attach itself to the task."],
       ["Through the day", "Commit and push as you go. The board moves on its own within a minute of a push — you never touch it. When the work is ready, open the pull request from the task page."],
       ["When you are stuck", "Raise it in writing the same day. Label the issue <code>blocked</code> or say so in your pod channel. A block that is raised belongs to the company; a block that is not raised belongs to you."],
@@ -63,7 +63,7 @@ const ROLE = {
     who: "Pod leads. Whoever is named in somebody’s lead_email.",
     day: [
       ["Morning", "Open <strong>Analytics</strong>. Two numbers decide your day: <em>claimed, not proven</em> — tasks with a name and no artifact behind them — and <em>stalled</em>, anything untouched for three days. Neither is a naughty list; both are a prompt to ask."],
-      ["Assigning", "Anything under “nobody’s name on it” on <strong>Team</strong> is unclaimed. Open the task and use <strong>Assign to…</strong>. You can also move a task off somebody who is stuck, away, or gone — that is the whole reason the power exists."],
+      ["Assigning", "Open work with <strong>New task</strong> — the description you write there is the brief an agent gets, so write it as one. Anything under “nobody’s name on it” on <strong>Team</strong> is unclaimed: open the task and use <strong>Assign to…</strong>. You can also move a task off somebody who is stuck, away, or gone — that is the whole reason the power exists."],
       ["Reviewing", "Pull requests waiting on a human show on each task. <em>Review wait</em> on Analytics tells you if you are the bottleneck before anybody complains about it."],
       ["Leave", "Requests from your reports appear under <strong>Waiting on you</strong> on the Leave screen. A rejection needs a written reason — they read it on their own page."],
       ["Weekly", "1:1s. What was said stays with the pair; what was agreed becomes a goal or a task and travels normally."],

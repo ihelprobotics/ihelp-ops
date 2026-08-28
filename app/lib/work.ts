@@ -24,6 +24,37 @@ export type OpenWork = {
   error: string | null;
 };
 
+/**
+ * Tasks opened through this platform in the last minute and a half.
+ *
+ * GitHub's issue *list* endpoint is not read-your-writes. Measured against a
+ * real repository, an issue created at t=0 did not appear in
+ * `GET /repos/:repo/issues` until t≈7.5s — eight attempts, every one of the
+ * first five absent. Invalidating our own cache does nothing about that: the
+ * next read is fresh, truthful, and still missing the task.
+ *
+ * The person who just opened it sees a board without it, decides the button did
+ * not work, and opens it again. Two issues for one piece of work is exactly the
+ * mess this platform exists to prevent.
+ *
+ * So the issue object GitHub returned from the create is held here and merged
+ * into the next reads. This is not a mirror and not a source of truth: it is
+ * the same object GitHub just handed us, held for as long as its own index
+ * takes to agree, and dropped by number the moment the list contains it. The
+ * database never sees it.
+ */
+const GRACE_MS = 90_000;
+const justOpened = new Map<string, { issue: any; at: number }[]>();
+
+const stillWaiting = (repo: string) =>
+  (justOpened.get(repo) ?? []).filter((x) => Date.now() - x.at < GRACE_MS);
+
+/** Called after this platform opens a task, with what GitHub answered. */
+export function noteNewTask(repo: string, issue: any): void {
+  justOpened.set(repo, [...stillWaiting(repo), { issue, at: Date.now() }]);
+  forgetWork(repo);
+}
+
 export async function openWorkFor(repo: string): Promise<OpenWork> {
   return cached(`work:${repo}`, async () => {
     try {
@@ -34,9 +65,17 @@ export async function openWorkFor(repo: string): Promise<OpenWork> {
         ghFetch(`/repos/${repo}/branches?per_page=100`).catch(() => ({ status: 0, body: [] })),
       ]);
 
+      const listed = expectList(issuesRes.body, "issues").filter((i: any) => !i.pull_request);
+
+      // Anything we opened that GitHub has not indexed yet. Deduped by number,
+      // so the moment its own list catches up this adds nothing.
+      const pending = stillWaiting(repo)
+        .map((x) => x.issue)
+        .filter((e) => !listed.some((i: any) => i.number === e.number));
+
       return {
         repo,
-        issues: expectList(issuesRes.body, "issues").filter((i: any) => !i.pull_request),
+        issues: [...listed, ...pending],
         branches: (Array.isArray(branchesRes.body) ? branchesRes.body : []).map((b: any) => b.name as string),
         error: null,
       };

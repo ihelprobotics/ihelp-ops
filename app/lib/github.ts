@@ -331,3 +331,68 @@ export async function merge(repo: string, prNumber: number) {
   }
   return body;
 }
+
+/**
+ * Open a task — a GitHub issue, created in the repository it belongs to.
+ *
+ * The platform does not keep tasks. It writes this one straight to GitHub and
+ * then reads it back like every other, so there is never a moment where a task
+ * exists here and not there. That is the same rule as everywhere else: two
+ * copies means neither is true.
+ *
+ * Provenance is the part worth being careful about. The platform holds one
+ * token, so GitHub will record that token's owner as the author no matter who
+ * filled the form — and a board where every task was opened by the same person
+ * is a board that lies. So the requester is named in the issue body, in the
+ * artifact itself, where it survives being read outside this platform.
+ *
+ * The title and body are sent exactly as typed. Nothing is prefixed, templated
+ * or tidied: an agent dispatched onto this task reads that body as its whole
+ * specification, and a sentence somebody did not write is a sentence they did
+ * not mean.
+ */
+export async function openTask(opts: {
+  repo: string;
+  title: string;
+  body: string;
+  login: string;
+  name: string | null;
+  labels?: string[];
+}) {
+  const { repo, title, body, login, name, labels = [] } = opts;
+
+  const who = name && name !== login ? `${name} (@${login})` : `@${login}`;
+  const provenance = `\n\n---\nOpened by ${who} through iHelp Ops.`;
+
+  const { status, body: issue } = await ghFetch(`/repos/${repo}/issues`, {
+    method: "POST",
+    body: JSON.stringify({
+      title,
+      body: (body.trim() ? body.trim() : "_No description._") + provenance,
+      ...(labels.length ? { labels } : {}),
+    }),
+    allow: [403, 404, 410, 422],
+  });
+
+  if (status === 410 || status === 404) {
+    throw new Error(
+      `${repo} has issues turned off, so a task cannot be opened there. Enable Issues in the repository settings, or pick a different repository.`
+    );
+  }
+  if (status === 403) {
+    throw new Error(
+      `GH_DISPATCH_TOKEN cannot open issues in ${repo}. A classic token needs \`repo\`; a fine-grained one needs Issues: write.`
+    );
+  }
+  if (status === 422) {
+    const why = issue?.errors?.map((e: any) => e.message ?? e.field).filter(Boolean).join("; ");
+    throw new Error(`GitHub refused the issue${why ? `: ${why}` : "."}`);
+  }
+  if (typeof issue?.number !== "number") {
+    throw new Error(
+      `GitHub answered ${status} without an issue number, so it is not clear whether the task was created. Check ${repo} on GitHub before trying again.`
+    );
+  }
+
+  return { number: issue.number as number, url: issue.html_url as string, issue };
+}
