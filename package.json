@@ -6,14 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:rls": "node --env-file-if-exists=.env.local db/rls-check.mjs",
-    "test:webhook": "node --env-file-if-exists=.env.local db/webhook-check.mjs",
-    "test:people": "node --env-file-if-exists=.env.local db/people-check.mjs",
-    "test:pages": "node --env-file-if-exists=.env.local db/pages-check.mjs",
-    "test:analytics": "node --env-file-if-exists=.env.local db/analytics-check.mjs",
+    "test:rls": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/rls-check.mjs",
+    "test:webhook": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/webhook-check.mjs",
+    "test:people": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/people-check.mjs",
+    "test:pages": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/pages-check.mjs",
+    "test:analytics": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/analytics-check.mjs",
     "digest": "node --env-file-if-exists=.env.local ops/daily-email.mjs",
-    "test:assign": "node --env-file-if-exists=.env.local db/assign-check.mjs",
-    "test:admin": "node --env-file-if-exists=.env.local db/admin-check.mjs"
+    "test:assign": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/assign-check.mjs",
+    "test:admin": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/admin-check.mjs"
   },
   "dependencies": {
     "postgres": "^3.4.5",
