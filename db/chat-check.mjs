@@ -195,10 +195,15 @@ try {
   // what comes back is the sign-in screen and not the chat. The route keeps its
   // own 401 anyway — a guard that only exists in the middleware is one edit to
   // the matcher away from not existing.
-  const anon = await post(ok, {});
-  const anonBody = await anon.text();
-  is("a stranger never reaches the chat", anonBody.includes("event: text"), false);
-  says("and lands on the sign-in screen instead", anonBody, "Continue with Google");
+  // Not followed: a 307 preserves the method, so following it re-POSTs to the
+  // sign-in page and the body that comes back depends on the host. What matters
+  // is where it was sent, and that it was not the chat.
+  const anon = await fetch(BASE + "/api/chat", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(ok), redirect: "manual",
+  });
+  is("a stranger is turned away before the chat", anon.status, 307);
+  says("  and sent to sign in", anon.headers.get("location") ?? "", "/login");
 
   for (const [label, body, code, mention] of [
     ["an agent nobody defined is refused",  { ...ok, agent: "ceo" },        400, "is not an agent"],
