@@ -53,6 +53,27 @@ Asking the architect whether an approach is sound costs a cent and takes
 seconds; changing the code still goes through Path A, sandboxed, ending in a
 pull request a human reviews.
 
+**Path C can start Path A.** Having worked out what should change, you press
+"Have it do this" and the conversation becomes a real run. What it sends is a
+**brief** — one editable box, at most `BRIEF_LIMIT` characters, which arrives as
+a `brief` input on `agent-run.yml`, is appended to the agent's prompt, and is
+quoted in the pull request body so a reviewer can see what was asked for.
+
+The box exists rather than the transcript being sent, and it matters why. The
+conversation is private and the run is public: the brief lands in the Actions
+log and the pull request, where the whole organisation reads it. Sending the
+thread automatically would undo the trade that lets the platform store what
+somebody typed at all. So the person writes the sentence that gets published,
+is told it will be published, and confirms it. The conversation never leaves.
+
+Two rules the bridge does not bend. **Tiers gate the button, not the talking** —
+a week1 joiner can still ask the architect anything and still cannot dispatch
+it, and `canDispatch` in `app/lib/agents.ts` is the one rule the button and the
+route both read. **The issue is still the task** — the brief narrows it and the
+prompt says so; an agent told to do something the issue does not cover is
+instructed to stop and write the conflict into `AGENT-NOTES.md` rather than
+guess between them.
+
 Three consequences worth stating, because they are the ones people assume the
 other way round:
 

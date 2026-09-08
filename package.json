@@ -15,7 +15,8 @@
     "test:assign": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/assign-check.mjs",
     "test:admin": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/admin-check.mjs",
     "test:chat": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/chat-check.mjs",
-    "test:create": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/create-check.mjs"
+    "test:create": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/create-check.mjs",
+    "test:dispatch": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/dispatch-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

@@ -261,6 +261,10 @@ export const BASE_CSS = `
   .msg { display: flex; flex-direction: column; gap: 4px; max-width: 86%; }
   .msg.user      { align-self: flex-end;   align-items: flex-end; }
   .msg.assistant { align-self: flex-start; align-items: flex-start; }
+  /* A dispatch receipt. Centred and full width because it is neither side of
+     the conversation — it is the moment the conversation turned into work that
+     leaves this page. */
+  .msg.run { align-self: stretch; align-items: stretch; max-width: 100%; }
 
   .msg .from {
     font-size: 11px; font-weight: 600; letter-spacing: .04em;
@@ -287,6 +291,29 @@ export const BASE_CSS = `
        without it the agent's side of the conversation loses its edges. */
     box-shadow: inset 0 0 0 1px var(--line-soft);
   }
+  .msg.run .body {
+    background: var(--accent-bg); color: var(--accent-ink);
+    border-radius: var(--radius-sm); font-size: 13.5px;
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+
+  /* Dispatching from the conversation. */
+  .dispatch { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .dispatch-why { margin: 0; }
+  .dispatch-box {
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 14px; border-radius: var(--radius-sm);
+    background: var(--sunken); box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .dispatch-box textarea { width: 100%; }
+  .dispatch-box .warn { margin: 0; color: var(--amber); }
+  .dispatch-box .warn strong { color: var(--amber); }
+  .dispatch-box p { margin: 0; }
+  .dispatch-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .dispatch-foot .row { display: flex; gap: 8px; }
+  .dispatch-foot .over { color: var(--danger); font-weight: 600; }
 
   /* The model's working-out while you wait for the answer. Dimmed and
      italic because it is not the answer — and it disappears the moment the
