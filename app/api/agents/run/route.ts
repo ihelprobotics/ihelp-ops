@@ -12,7 +12,7 @@ import { sql } from "@/lib/db";
 // Graduated access and the draft-tier exclusion both come from the shared
 // roster in app/lib/agents.ts, so the board, the chat picker and this gate
 // cannot disagree about which agents exist.
-import { TIERS, HUMAN_OWNER_ONLY } from "@/app/lib/agents";
+import { TIERS, HUMAN_OWNER_ONLY, BRIEF_LIMIT } from "@/app/lib/agents";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -20,9 +20,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Sign in with GitHub first." }, { status: 401 });
   }
 
-  const { agent, repo, issue } = await req.json();
+  const { agent, repo, issue, brief } = await req.json();
   if (!agent || !repo || !issue) {
     return NextResponse.json({ error: "agent, repo and issue are all required." }, { status: 400 });
+  }
+
+  // The brief is optional, and it is the one thing here a person typed.
+  //
+  // It leaves the private side of the platform: it goes into the workflow
+  // inputs, the Actions log and the pull request body, where the whole
+  // organisation can read it. The chat it was composed in cannot be read by
+  // anyone else (db/schema-chat.sql, one policy clause, no admin escape), so
+  // this crossing has to be something the person did on purpose — which is why
+  // the UI makes them confirm the text rather than sending the conversation.
+  if (brief !== undefined && typeof brief !== "string") {
+    return NextResponse.json(
+      { error: "brief must be a string. It is the sentence describing what this run should do." },
+      { status: 400 }
+    );
+  }
+  const runBrief = typeof brief === "string" ? brief.trim() : "";
+  if (runBrief.length > BRIEF_LIMIT) {
+    return NextResponse.json(
+      { error: `The brief is ${runBrief.length} characters and the limit is ${BRIEF_LIMIT}. It narrows the issue rather than replacing it — if it needs more room than that, it belongs on the issue itself, where the whole team can see it.` },
+      { status: 400 }
+    );
   }
 
   const [user] = await sql`
@@ -84,6 +106,10 @@ export async function POST(req: Request) {
           issue: String(issue),
           requester: user.gh_login,
           run_id: run.id,
+          // Always sent, empty when there is none: workflow_dispatch rejects an
+          // input the workflow does not declare, but an input declared with a
+          // default is happy to receive "".
+          brief: runBrief,
         },
       }),
     }

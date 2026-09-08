@@ -14,8 +14,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AGENTS, agentName } from "@/app/lib/agents";
+import Dispatch, { type Me } from "./dispatch";
 
-type Msg = { role: "user" | "assistant"; content: string; cost?: number; thinking?: string };
+type Msg = {
+  role: "user" | "assistant" | "run";
+  content: string;
+  cost?: number;
+  thinking?: string;
+};
 
 /**
  * The little bit of Markdown an agent actually writes.
@@ -50,13 +56,14 @@ function rich(text: string) {
 }
 
 export default function Chat({
-  owner, name, issue, initialAgent, history,
+  owner, name, issue, initialAgent, history, me,
 }: {
   owner: string;
   name: string;
   issue: number;
   initialAgent: string;
   history: { agent: string; messages: Msg[] };
+  me: Me;
 }) {
   const [agent, setAgent] = useState(initialAgent);
   const [msgs, setMsgs] = useState<Msg[]>(history.agent === initialAgent ? history.messages : []);
@@ -67,6 +74,11 @@ export default function Chat({
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [msgs, busy]);
+
+  // What to put in the brief box as a starting point: the last thing this
+  // person actually asked for. The agent's reply is not used — it is the
+  // agent's words, and what gets published should be the person's.
+  const lastAsked = [...msgs].reverse().find((m) => m.role === "user")?.content ?? "";
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -185,7 +197,9 @@ export default function Chat({
         )}
         {msgs.map((m, i) => (
           <div className={"msg " + m.role} key={i}>
-            <span className="from">{m.role === "user" ? "You" : agentName(agent)}</span>
+            <span className="from">
+              {m.role === "user" ? "You" : m.role === "run" ? "Run" : agentName(agent)}
+            </span>
             {m.thinking && !m.content && (
               <p className="thinking">{m.thinking}</p>
             )}
@@ -203,6 +217,30 @@ export default function Chat({
       </div>
 
       {err && <div className="error">{err}</div>}
+
+      {/* Where the conversation becomes work. The chat cannot change anything;
+          this dispatches agent-run.yml, which can. */}
+      <Dispatch
+        owner={owner}
+        name={name}
+        issue={issue}
+        agent={agent}
+        suggested={lastAsked}
+        me={me}
+        onDispatched={(text) =>
+          // Local only, and deliberately not written to chat_message: the
+          // record of a run is the agent_run row and the pull request that
+          // comes back through the webhook. This line is a receipt for the
+          // person who pressed the button, not a second copy of the truth.
+          setMsgs((m) => [
+            ...m,
+            {
+              role: "run",
+              content: `Dispatched to ${agentName(agent)} in GitHub Actions: “${text}” — the pull request will appear under “What proves it” when it opens.`,
+            },
+          ])
+        }
+      />
 
       <form className="ask" onSubmit={send}>
         <textarea

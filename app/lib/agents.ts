@@ -61,6 +61,61 @@ export const CHAT_AGENTS: string[] = AGENTS.map((a) => a.id);
 export const isChatAgent = (s: string) => CHAT_AGENTS.includes(s);
 
 /**
+ * How long a dispatch brief may be.
+ *
+ * Here rather than in the route because three things enforce it — the box in
+ * the chat, the route, and `agent-run.yml`, which can be dispatched by hand and
+ * so cannot trust the platform to have checked. A limit that disagrees between
+ * them is a box that lets you type something the run then refuses.
+ *
+ * 2000 is a paragraph or two. The brief narrows the issue; anything needing
+ * more than that is a change to the issue, which is public and is the record.
+ */
+export const BRIEF_LIMIT = 2000;
+
+/**
+ * Whether this person may dispatch this agent — the same rule
+ * `POST /api/agents/run` enforces, in a form the chat can use to decide whether
+ * to offer the button at all.
+ *
+ * Offering a button that the API will refuse teaches nothing. A tier that
+ * cannot dispatch still sees why, the way the locked tiles on the board do.
+ *
+ * `why` is empty rather than absent when allowed: this project compiles with
+ * `strict: false`, so a `{ok: true} | {ok: false, why}` union does not narrow
+ * on `!result.ok` and every caller would need a cast to read the reason.
+ */
+export function canDispatch(
+  agent: string,
+  who: { role?: string | null; tier?: string | null } | null
+): { ok: boolean; why: string } {
+  if (!who) return { ok: false, why: "Sign in to dispatch an agent." };
+
+  if (HUMAN_OWNER_ONLY.includes(agent)) {
+    // The draft agents are not in AGENTS — they are never offered anywhere — so
+    // agentName falls back to the bare id and this sentence would open in
+    // lower case.
+    const named = agentName(agent);
+    return {
+      ok: false,
+      why: `The ${named} agent is draft or advisory tier. Its human owner runs it directly — its output either leaves the company or changes production.`,
+    };
+  }
+
+  const allowed = who.role === "cto" || who.role === "founder"
+    ? TIERS.full
+    : TIERS[(who.tier as Tier) ?? "week1"] ?? TIERS.week1;
+
+  if (!allowed.includes(agent)) {
+    return {
+      ok: false,
+      why: `You can talk to ${agentName(agent)}, but dispatching it is above your level for now. You can dispatch: ${allowed.map(agentName).join(", ")}.`,
+    };
+  }
+  return { ok: true, why: "" };
+}
+
+/**
  * What an exchange cost, in dollars.
  *
  * Written down rather than left implicit, because a conversation that silently

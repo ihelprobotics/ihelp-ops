@@ -184,6 +184,18 @@ export default async function TaskPage({
                 issue={task.number}
                 initialAgent={chatHistory.agent}
                 history={chatHistory}
+                // Tier and role decide whether this conversation can be turned
+                // into a run. Tiers gate dispatch, never the talking — so this
+                // is passed for the button, not for the chat.
+                me={
+                  session?.user
+                    ? {
+                        login,
+                        role: session.user.role ?? "member",
+                        tier: session.user.tier ?? "week1",
+                      }
+                    : null
+                }
               />
             </div>
           </section>
