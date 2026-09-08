@@ -183,6 +183,15 @@ try {
         return "allowed";
       })(), "allowed");
 
+      // The digest addressed to a lead, which belongs to no one person and so
+      // carries a null user_id. It is asserted on further down — "the CTO can"
+      // — and until this line existed that assertion passed only when the
+      // database happened to hold a row from a real digest run. It did on
+      // production and did not on an empty one, which is a check reporting the
+      // history of the database it ran against rather than the policy.
+      await tx`insert into notification_log (user_id, kind, sent_to, subject)
+               values (null, 'digest', ${`ppl-${tag}-lead@x.dev`}, 'the daily digest')`;
+
       // Ledger fixtures, written as the owner — which is how the webhook, the
       // agent callback and the Claude Code hooks all write them.
       const LREPO = `ppl-check/${tag}`;
