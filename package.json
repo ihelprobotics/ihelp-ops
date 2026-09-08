@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:rls": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/rls-check.mjs",
+    "test:signin": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/signin-check.mjs",
     "test:webhook": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/webhook-check.mjs",
     "test:people": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/people-check.mjs",
     "test:pages": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/pages-check.mjs",

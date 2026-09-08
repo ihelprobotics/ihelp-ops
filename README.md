@@ -57,6 +57,7 @@ Each of these refuses to run without a real database, because a check that
 passes against nothing proves nothing.
 
 ```bash
+npm run test:signin     # a refusal and a failure, told apart      (needs npm run dev)
 npm run test:rls        # the policies, and that withUser makes them apply
 npm run test:people     # leave, the digest's filter, and the person page
 npm run test:webhook    # the seven rungs of the progress ladder  (needs npm run dev)
