@@ -11,6 +11,10 @@ import Link from "next/link";
 const PAGES = [
   { href: "/", key: "board", label: "Board" },
   { href: "/new", key: "new", label: "New task" },
+  // The way in to a conversation. Before this existed the chat lived only in a
+  // section of one task page, so unless you had already opened the right task
+  // there was no route to an agent from anywhere in the product.
+  { href: "/agents", key: "agents", label: "Agents" },
   { href: "/team", key: "team", label: "Team" },
   { href: "/leave", key: "leave", label: "Leave" },
   { href: "/me", key: "me", label: "Me" },

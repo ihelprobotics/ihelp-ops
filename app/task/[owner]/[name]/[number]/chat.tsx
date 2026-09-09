@@ -191,8 +191,9 @@ export default function Chat({
           <p className="muted small" style={{ margin: 0 }}>
             Ask about this task — what it needs, how the code around it works,
             whether the approach is right. The agent can read the repository and
-            think with you. It cannot change anything: for that, press Run above
-            and it goes to work in GitHub Actions and opens a pull request.
+            think with you. It cannot change anything itself: when you know what
+            should happen, <strong>Have {agentName(agent)} do this</strong> sends
+            it to a real run in GitHub Actions, which opens a pull request.
           </p>
         )}
         {msgs.map((m, i) => (
