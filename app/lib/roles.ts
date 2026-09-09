@@ -25,6 +25,24 @@ export type Tier = (typeof TIERS)[number];
 export const ADMIN_ROLES: readonly string[] = ["cto", "founder"];
 export const isAdmin = (role: string) => ADMIN_ROLES.includes(role);
 
+/**
+ * Who may turn a prompt into a set of issues.
+ *
+ * Opening one task is open to anyone with a linked GitHub login — it is one
+ * piece of work, and the person doing it is the person who has to live with it.
+ * Opening eight at once is a different act: it puts work on a board other
+ * people read and plan around, and a vague prompt produces eight vague issues
+ * faster than anyone can close them. So it sits with the people who already
+ * decide what the team works on.
+ *
+ * This is not a second approval system — docs/06 rules that out, and nothing
+ * here approves anything. It is who may *propose* work in bulk. Every issue it
+ * opens is an ordinary GitHub issue that CODEOWNERS and branch protection
+ * govern exactly as they govern any other.
+ */
+export const PLANNING_ROLES: readonly string[] = ["lead", "cto", "founder"];
+export const canPlan = (role: string) => PLANNING_ROLES.includes(role);
+
 export type Permission = {
   what: string;
   member: string;
@@ -58,6 +76,10 @@ export const PERMISSIONS: Permission[] = [
   { what: "Dispatch agents",
     member: "up to your tier", lead: "up to your tier", cto: "up to your tier", founder: "any",
     where: "TIERS in /api/agents/run" },
+
+  { what: "Break a prompt into issues and open them",
+    member: NO, lead: "with GitHub linked", cto: "with GitHub linked", founder: "with GitHub linked",
+    where: "canPlan() in /api/plan and /api/plan/open" },
 
   { what: "Talk to any agent about a task",
     member: YES, lead: YES, cto: YES, founder: YES,

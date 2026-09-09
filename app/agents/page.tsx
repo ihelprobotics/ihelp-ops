@@ -23,7 +23,6 @@ import { sql, withUser } from "@/lib/db";
 import { repos } from "@/app/lib/repos";
 import { openWorkForAll } from "@/app/lib/work";
 import { AGENTS, CHAT_AGENTS, agentName, canDispatch } from "@/app/lib/agents";
-import { isAdmin } from "@/app/lib/roles";
 import { BASE_CSS } from "@/app/ui/base-css";
 import Nav from "@/app/ui/nav";
 import Chat from "@/app/task/[owner]/[name]/[number]/chat";
@@ -38,7 +37,7 @@ export default async function AgentsPage({
   searchParams: Promise<Search>;
 }) {
   const session = await auth();
-  const admin = isAdmin(session?.user?.role ?? "");
+  const role = session?.user?.role ?? "";
   const sp = await searchParams;
 
   // An unknown agent in the URL is not silently swapped for a working one —
@@ -133,7 +132,7 @@ export default async function AgentsPage({
             Ask an agent about a task, then hand it the work. Talking changes
             nothing — the pull request is what changes anything.
           </p>
-          <Nav current="agents" admin={admin} />
+          <Nav current="agents" role={role} />
         </div>
       </header>
 

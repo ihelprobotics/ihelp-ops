@@ -29,6 +29,7 @@ export default async function AdminPage() {
     : [];
 
   const allowed = !!me && isAdmin(me.role);
+  const role = me?.role ?? "";
 
   const people = allowed
     ? await sql<Person[]>`
@@ -60,7 +61,7 @@ export default async function AdminPage() {
         <div>
           <h1>Accounts and roles</h1>
           <p className="sub">{allowed ? `${people.length} accounts · ${admins.length} can change roles` : "restricted"}</p>
-          <Nav current="admin" admin={allowed} />
+          <Nav current="admin" role={role} />
         </div>
         {me && (
           <div className="who">

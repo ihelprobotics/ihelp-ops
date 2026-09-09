@@ -16,7 +16,6 @@ import { repos } from "@/app/lib/repos";
 import { stageLabel } from "@/app/lib/progress";
 import { PEOPLE_CSS } from "@/app/ui/people-css";
 import Nav from "@/app/ui/nav";
-import { isAdmin } from "@/app/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +26,7 @@ const pct = (part: number, whole: number) => (whole === 0 ? "—" : `${Math.roun
 export default async function AnalyticsPage() {
   const session = await auth();
   // The Admin link, shown only to those it is for. The page itself checks too.
-  const admin = isAdmin(session?.user?.role ?? "");
+  const role = session?.user?.role ?? "";
   let list: string[] = [];
   let a: Awaited<ReturnType<typeof loadAnalytics>> | null = null;
   let error = "";
@@ -44,7 +43,7 @@ export default async function AnalyticsPage() {
         <div>
           <h1>Analytics</h1>
           <p className="sub">{list.length ? list.join(" · ") : "no repositories configured"}</p>
-          <Nav current="analytics" admin={admin} />
+          <Nav current="analytics" role={role} />
         </div>
         {session?.user && (
           <div className="who">

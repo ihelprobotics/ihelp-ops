@@ -16,7 +16,6 @@
 import { auth } from "@/auth";
 import Nav from "@/app/ui/nav";
 import { BASE_CSS } from "@/app/ui/base-css";
-import { isAdmin } from "@/app/lib/roles";
 import { repos, type Repo } from "@/app/lib/repos";
 import { ghFetch } from "@/app/lib/github";
 import { cached } from "@/app/lib/cache";
@@ -56,7 +55,7 @@ async function reposWithAgents(list: Repo[]): Promise<string[]> {
 
 export default async function NewTaskPage() {
   const session = await auth();
-  const admin = isAdmin(session?.user?.role ?? "");
+  const role = session?.user?.role ?? "";
   const login = session?.user?.login ?? null;
 
   let list: Repo[] = [];
@@ -79,7 +78,7 @@ export default async function NewTaskPage() {
       <style dangerouslySetInnerHTML={{ __html: BASE_CSS + PAGE_CSS }} />
       <header className="top">
         <h1>Open a task</h1>
-        <Nav current="new" admin={admin} />
+        <Nav current="new" role={role} />
       </header>
 
       {error ? (

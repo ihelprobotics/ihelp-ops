@@ -129,7 +129,7 @@ export default function Dashboard() {
               ? repos[0].repo
               : `${repos.length} repositories · ${tasks.length} open`}
           </p>
-          <Nav current="board" admin={isAdmin(me?.role ?? "")} />
+          <Nav current="board" role={me?.role ?? ""} />
         </div>
         {me && (
           <div className="who">
