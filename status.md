@@ -1,148 +1,157 @@
-# Status — 27 Aug 2026
+# Status — 9 Sep 2026
 
 Where the build stands, what is blocking, and what to do first tomorrow.
 
 Repo: `ihelprobotics/ihelp-ops` (private) · branch `main`.
-Deployed at **https://ihelp-ops-ai-decodeds-projects.vercel.app**, in the
-`ai-decodeds-projects` Vercel org.
+Deployed at **https://ihelp-ops-live.vercel.app**, in the `ai-decodeds-projects`
+Vercel team. The older `ihelp-ops-ai-decodeds-projects.vercel.app` is an alias
+on the same project, so handouts printed with it still work.
 
-**Step 1 of `docs/04` is complete.** Phases 0 through 7 are built, tested and
-live, and all eight acceptance tests in `docs/09` pass. What remains is one
-sign-in, one merge, one decision — and then using the thing for a week.
+**Step 1 of `docs/04` is complete, and four changes have landed since.** The
+platform is healthy and signed-in use works. One thing is hard-blocked: nothing
+can be deployed, for a reason outside this repository.
 
 ---
 
 ## Start here tomorrow
 
-Nothing on this list is code. Every phase is built, tested and live.
+1. **Open the Vercel dashboard for `ai-decodeds-projects`.** Every deployment
+   for the last ten days comes back `BLOCKED`. Nothing in this codebase can fix
+   that — see *Deployment* below. A dashboard banner will usually name the
+   cause, and the API does not expose it.
 
-1. **Sign in to production with Google once.** It is the only credential no
-   automated check can exercise — everything else was re-verified after the
-   rotation, but a Google client secret is only proved by a real sign-in. If it
-   was rotated, the new value has to be in Google Cloud Console too.
-
-2. **Merge or close PR #2.** It now carries three commits and two scribe runs.
-   A human in CODEOWNERS owns that call.
+2. **Decide about the plan.** If it is the Team-on-Hobby mismatch, upgrading to
+   Pro fixes it and also retires `ops/deploy.mjs`, which exists only to route
+   around a deploy path the plan already refuses.
 
 3. **Use it for a week.** The next thing to build is whatever the first intern
    gets stuck on.
 
 ---
 
-## Deployment, as of now
+## Deployment — blocked, and not by anything here
 
-The Vercel GitHub App is installed on `ihelprobotics` and the project is
-connected to the repository. **Deploy by pushing to `main`** — Vercel builds
-from git in about 45 seconds.
+**Do not trust the previous version of this file on how to deploy.** It said to
+push to `main`. That has never worked for this project and does not now:
+`ihelp-ops` is a private organisation repository on the Hobby plan, which Vercel
+refuses outright. Deploys go through `node ops/deploy.mjs`, which builds locally
+and uploads prebuilt output to `ihelp-ops-live`, a second project with no
+repository attached.
 
-`vercel deploy` from a laptop is still refused, and will stay refused: the CLI
-stamps the upload with the local git metadata, and Vercel blocks a deployment
-whose commit author is not a member of the Vercel team. The commits are authored
-by `ammusharaff`; the CLI is authenticated as `krishna-6771`. Either add that
-GitHub account to the Vercel team, or simply push — the git path is the better
-one anyway. To deploy without a new commit, POST to `/v13/deployments` with a
-`gitSource` of `{type: github, org: ihelprobotics, repo: ihelp-ops, ref: main}`.
+That path now fails too. On 8–9 Sep, five attempts:
+
+| Variant | Result |
+|---|---|
+| `node ops/deploy.mjs` (pull, build, flatten, deploy) | `BLOCKED` |
+| `vercel deploy --prebuilt --prod`, twice | `BLOCKED` |
+| `vercel deploy` — source upload, **preview** target | `BLOCKED` |
+| `vercel deploy --prebuilt --prod --scope <personal>` | *"You cannot set your Personal Account as the scope."* |
+
+What this rules out: it is not a daily cap (the date rolled over mid-attempt and
+it still blocks), not the upload (two attempts uploaded fully and reached
+"Building…"), not production-specific (a preview blocks identically), not the
+symlink bug `ops/deploy.mjs` works around (flatten ran fine, 30 symlinks
+replaced), and not stale auth (`vercel whoami` answers throughout).
+
+It is also **not the commit-author theory** the previous version of this file
+recorded. The CLI is authenticated as `ai-decoded` / `aidecoded23@gmail.com`,
+which is the account that owns the team; and a preview deploy carrying the same
+git metadata blocks the same way.
+
+The account state: team not blocked, billing `active`, nothing overdue, project
+not paused. The one anomaly is that `ai-decodeds-projects` is a **Team on the
+`hobby` plan**, and Hobby is a personal-account tier.
+
+**`vercel ls` renders `BLOCKED` as `UNKNOWN`.** That is worth knowing, because
+it reads as a hung upload. Only the API tells the truth:
+
+```
+GET /v6/deployments?projectId=…  ->  readyState: BLOCKED
+```
+
+The last `READY` deployment is from 29 Aug. **Production therefore serves code
+from 29 Aug**: the sign-in fix and the conversation-dispatch feature are on
+`main` and are not live.
+
+Two one-off steps still apply whenever a deploy does land, both in
+`ops/deploy.mjs`'s closing note: Deployment Protection has to be off, and the
+deployment's callback URL has to be in Google's authorised redirect URIs or
+sign-in fails with `redirect_uri_mismatch`.
 
 ---
 
-## Proven live, end to end
+## The database was deleted, and is back
 
-**The agent loop, twice fixed and then watched working.** Run `ad2db36b`,
-dispatched through the production platform by the founder:
+Between 29 Aug and 8 Sep the Supabase project behind `DATABASE_URL` stopped
+existing — `ENOTFOUND … tenant/user postgres.<ref> not found`, with `NXDOMAIN`
+on both the pooler tenant and the project host, which is deletion rather than
+the free-tier pause. Every table went with it, including the ledger that held
+the proof the agent loop had run.
 
-- The branch `agent/scribe/issue-1` already existed, and was **resumed** rather
-  than recreated. Every previous re-run died here.
-- PR #2 already existed, so it was **commented** rather than duplicated:
-  "Another scribe run for @ammusharaff pushed to this branch."
-- `agent_run` records `success`, PR #2, **$0.3110**, 3241 in / 2672 out.
+It has since been restored. `/api/health` reports `ok` on all five checks, two
+active accounts, and the webhook receiving — 15 events, most recently the merge
+of PR #10.
 
-**Test 5, rung by rung, with GitHub doing the delivering.** The agent's push
-arrived through the webhook as `commit_event` `f263b4c` on
-`agent/scribe/issue-1`, carrying `issue_number = 1` from the trailer the
-workflow writes. **Task #1 moved from 20% to 40% with nobody touching the
-platform.**
-
-It stops at 40% and that is correct: PR #2 was opened on 25 August, before the
-webhook existed, so no `pr_opened` event was ever recorded for it. The ladder
-reports what happened, not what is true in GitHub today — which is the honest
-answer, and the reason the next task opened will climb the whole way.
-
-**Phase 7 acceptance.** The digest ran for real: it found six commits against
-the founder, named Ayeesha as the one person with nothing recorded, reported
-nobody on leave, and sent. Run a second time in the same day it sent nothing —
-`notification_log` holds exactly one nudge row for her, refused by the
-`nudge_once_per_day` index rather than by the sender remembering.
-
-`MAIL_FROM` was `ops@ihelprobotics.com`, and the only domain verified in Resend
-is `ihelprobotics.org`. Every send would have been rejected. Corrected in
-`.env.local` and in Vercel.
+There are no database backups anywhere in this repository. All sixteen tables
+rebuild from `db/*.sql`; none of the rows do.
 
 ---
 
-## What changed today
+## What landed since 27 Aug
 
-**The platform moved to the right Vercel account.** It had been deployed under a
-client's team. It now lives in `ai-decodeds-projects`, with its own project and
-its own copy of every environment variable. The old project was left in place
-deliberately, at your call.
+**Conversation dispatch (PR #10).** The chat and the dispatch button did not know
+about each other: you could reason with an agent about exactly what should
+change, press Run, and the run would re-read the issue and work from that alone.
+"Have it do this" now sends a `brief` — one box you confirm — into
+`agent-run.yml`, which appends it to the prompt and quotes it in the pull request
+body. The chat still cannot write; tiers still gate the button and not the
+talking; the issue is still the task.
 
-**Row-level security was not in force. It is now.** `DATABASE_URL` connects as
-`postgres`, which on Supabase carries BYPASSRLS, so every policy in
-`db/schema-people-growth.sql` was inert on the live connection — the 1:1 a
-delivery manager must not be able to read would have come back to them, with
-nothing anywhere reporting a problem. `withUser()` now switches to the
-unprivileged `authenticated` role inside its transaction. `npm run test:rls` had
-been *refusing to run* rather than passing, which is why this was never visible.
+The brief is a box rather than the transcript on purpose. The conversation is
+private with no admin escape, and a run is public. Sending the thread would undo
+the trade that lets the platform store what somebody typed at all.
 
-Nothing had leaked: the four protected tables were empty. Phase 6 is what starts
-filling them.
+**A dead database is not a permissions decision (PR #9).** Signing in against
+the deleted project reported *"You do not have permission to sign in."* Auth.js
+rewrites any throw from the `signIn` callback into `AccessDenied`, so an outage
+arrived wearing the clothes of a decision about the person — on the one screen
+where the reader cannot go and find a better error. `SignInUnavailable` now
+survives that rewrite and surfaces as `Configuration`, and `/login` says which
+of the two happened.
 
-**A second thing fell out of the first.** Supabase enables RLS on every table in
-`public` by default, and a table with RLS on and no policies is closed to
-everyone. Nine tables are in that state, invisible while everything ran as
-`postgres`. `note_access_log` is the one Phase 6 needs and now has policies of
-its own in `db/schema-note-access.sql`. The other eight are listed under *Known*.
+**`test:people` asserted on a row it never created (PR #12).** Its `"the CTO
+can"` assertion read the digest rows in `notification_log` — the ones with a
+null `user_id` — and the fixture never inserted one. It passed against
+production, where real digest runs had left rows behind, and failed the first
+time it met an empty database. The policy was correct throughout.
 
-**Phase 6 — people.** `/team`, `/leave`, `/me`, `/person/[id]`, `POST /api/leave`
-and `POST /api/leave/[id]`. Goals, 1:1s and feedback are read through `withUser`
-off the base tables rather than the `goal_progress` view — a view executes with
-its owner's row-level security, and the policy that applies should not depend on
-who ran `CREATE VIEW`. An empty notes list says whether that is because none
-exist or because none are yours to read.
-
-**Phase 7 — analytics and the digest.** `/analytics` reports cycle time, review
-latency, rework, claimed-versus-proven, stalled work, agent-authored share per
-person, and cost per agent and per person. No hours. Medians, not means.
-`ops/lib/mail.mjs` no longer captures `RESEND_API_KEY` at module load — a module
-is evaluated once per process, so setting the key in Vercel and redeploying
-would have looked like it had no effect while the digest went on skipping every
-send and reporting that it ran.
-
-**The webhook is live.** Real deliveries are arriving from GitHub: both of
-today's pushed commits are in `commit_event`, and a `workflow_run` conclusion is
-in `gh_event`. Their task numbers are null, correctly — the commits were on
-`main` with no `iHelp-Task:` trailer, and the workflow ran on `main` too.
+Earlier in the same stretch: multi-repo support, the admin/roles screen with a
+role-change audit trail, opening a task from the platform, production hardening,
+and five generated PDF handbooks.
 
 ---
 
 ## What is verified
 
-Five suites, each refusing to run without a real database, each asserting it
-left nothing behind. All pass locally and the last three also pass against
-production.
+Ten suites. Every one refuses to run without a real database and asserts it left
+nothing behind.
 
 | | | |
 |---|---|---|
-| `npm run test:rls` | 12 | The three docs/04 assertions, and that `withUser` makes the policies apply at all |
-| `npm run test:people` | 54 | Leave rules, `on_leave_today`, the digest's own filter, the one-nudge-a-day index, the person page under policy |
-| `npm run test:webhook` | 38 | Signed deliveries over HTTP; the ladder 10 → 100; every row filed under the issue and never the pull request |
-| `npm run test:pages` | 52 | The four people screens, signed in as three people with real Auth.js cookies |
-| `npm run test:analytics` | 22 | Two tasks with cycle time, review latency, rework and cost known by hand, read back off the rendered page |
+| `npm run test:signin` | 26 | A refusal and a failure told apart, against `@auth/core`'s own allowlist |
+| `npm run test:rls` | 12 | The policies, and that `withUser` makes them apply at all |
+| `npm run test:people` | 80 | Leave, `on_leave_today`, the one-nudge-a-day index, the person page under policy |
+| `npm run test:webhook` | 41 | Signed deliveries over HTTP; the ladder 10 → 100; every row filed under the issue |
+| `npm run test:pages` | 55 | Four screens, signed in as three people with real Auth.js cookies |
+| `npm run test:analytics` | 21 | Two tasks with cycle time, review latency, rework and cost known by hand |
+| `npm run test:assign` | 34 | Who may take work, across every repo |
+| `npm run test:admin` | 47 | Roles, tiers, and who may change them |
+| `npm run test:chat` | 41 | Talking to an agent, and a founder failing to read an engineer's thread |
+| `npm run test:dispatch` | 30 | Who may turn a conversation into a run, and what the brief refuses |
 
-`npm run digest` runs end to end: it found today's two commits as artifacts,
-named the one person with nothing on record, reported nobody on leave, and — with
-no mail key — skipped the send *and* refused to write `notification_log`, so
-tomorrow's nudge is not silently suppressed.
+All pass on `main` against a clean Postgres, `test:assign` excepted — see below.
+
+`tsc --noEmit` and `next build` are clean.
 
 ---
 
@@ -150,47 +159,53 @@ tomorrow's nudge is not silently suppressed.
 
 | | |
 |---|---|
-| Google sign-in unverified since the rotation | The one credential no automated check can exercise. One real sign-in settles it |
-| The Reviewer needs manual approval to run | Its workflow sits at `action_required` on the agent's branch, so the 75% rung cannot be reached on that task |
+| Every deployment returns `BLOCKED` | Plan-level, on Vercel's side. Nothing here fixes it |
+| Production runs code from 29 Aug | Consequence of the above, not a separate problem |
 
 ---
 
 ## Known, deliberately not fixed
 
-- Every table in `public` now carries at least one policy. The ledger —
-  `gh_event`, `commit_event`, `agent_run` — is readable by anyone signed in and
-  by no one who is not; `notification_log` and `local_session` follow the leave
-  rule, because being nudged and which branch you sat on are about a person.
-- **A dedicated login role** would be better than `authenticated`. That needs a
-  password and a change to `DATABASE_URL` in two places. `DB_APP_ROLE` is the seam.
-- **`git config user.email` is repo-locally the GitHub noreply address**, so the
-  commit author maps to a real GitHub account.
-- **`/api/agents/run` sends `Bearer undefined`** when `GH_DISPATCH_TOKEN` is
-  unset. The 401 reaches the user; it just does not name the key.
-- **The Reviewer's no-test rule blocks most PRs today.** Waivable via the PR body.
-- **The Reviewer is deterministic shell, not a model.** Deliberate.
-- **PR #2 is open and unmerged.** The scribe's `ops/README.md`, 144 lines.
-- **No clash detection in the leave queue** — a lead approving cannot see who
-  else from the pod is already away that week.
+- **A timeout on a write reports failure for work that succeeded.** Clearing an
+  assignee hit the 10-second budget while GitHub performed it anyway, and the
+  platform returned 502. In the UI: press "Hand it back", see an error, and the
+  task is handed back regardless. A read timeout is honest; this one invites a
+  retry against a change that already landed. The fix is to verify state after a
+  timeout rather than assume failure.
+- **`test:assign` cannot run on a clean database.** It needs a real founder or
+  CTO with a linked GitHub login, and says so. Two of the ten suites depend on
+  the state of the database they meet; only this one tells you.
+- **`test:assign` can leave a real issue unassigned.** On 8 Sep its restore step
+  hit the 502 above and did not put the name back, leaving issue #1 with no
+  owner. Restored by hand. Its own comment says this outcome is worse than no
+  check, and it is right.
+- **The board is flaky when GitHub is slow.** Fourteen repositories are read
+  live with a 10-second budget each; some time out and are reported as failed.
+  The message distinguishes a timeout from an empty repository, which is the
+  design working.
+- **`tsconfig.json` sets `"strict": false`,** so discriminated unions do not
+  narrow. `canDispatch` returns `{ok, why}` with an empty `why` because of it.
+- **No real dispatch has carried a brief end to end.** The check stops before
+  calling the workflow, so `brief` has never made the trip into a live prompt
+  and out into a pull request body.
+- **Five Dependabot alerts on `main`** — three high, two moderate.
+- **PR #2 is open and unmerged** since 25 Aug. The scribe's `ops/README.md`.
+- **`/api/agents/local` is unauthenticated** and outside the middleware matcher.
+  Documented as deliberate — soft evidence only — but it accepts arbitrary
+  `repo`/`branch`/`session` values from anyone who finds the URL.
+- **`app/page.tsx` is a 425-line client component**, against the "server
+  components by default, under ~200 lines" rule in `CLAUDE.md`.
+- **A dedicated login role** would be better than `authenticated`. `DB_APP_ROLE`
+  is the seam.
 
 ---
 
 ## Acceptance, against docs/09
 
-Tests 1–4 and 6 were proven earlier.
+Tests 1–4, 6, 7 and 8 were proven earlier and nothing since has weakened them.
+Test 5 is proven at every level the platform controls and was observed live on
+27 Aug: a real agent push moved task #1 from 20% to 40% through the real
+webhook, with nobody touching the platform.
 
-**Test 5** is proven at every level the platform controls — 38 assertions
-covering the whole ladder, the numbering trap, `cycle_time` and
-`review_latency` — and now also observed live: a real agent push moved task #1
-from 20% to 40% through the real webhook, with nobody touching the platform.
-
-**Test 7** is complete. Its privacy assertions hold under `test:rls` and
-`test:people`; its leave and nudge behaviour is proven both in the test suite
-and by two real digest runs, the second of which correctly sent nothing.
-
-**Test 8** — nothing is typed. There is no writable progress field anywhere and
-no hours anywhere, and `/analytics` says so on the page.
-
-That is Step 1 finished. Stop building and use it for a week. The next thing to
-build is whatever the first intern gets stuck on — not whatever looks
-unfinished.
+That evidence lived in the database that was deleted. The suites still prove the
+behaviour; the historical rows are gone.

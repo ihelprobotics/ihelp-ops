@@ -32,8 +32,9 @@ asking the QA agent what a test is for. What does still apply, and is kept:
 - There is no presence, no unread count, no notification, and no way to send a
   message to another human. Those are the parts Discord does better.
 
-See "Where agents run" in `docs/01-architecture.md` for what the conversation
-can and cannot do.
+See "Agent execution — the three paths" in `docs/01-architecture.md` for what
+the conversation can and cannot do, and for how Path C hands work to Path A
+without being able to do that work itself.
 
 **A second approval system.** GitHub branch protection and CODEOWNERS decide
 who approves. The platform's merge button calls the API and can be refused;
