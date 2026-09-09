@@ -7,74 +7,73 @@ Deployed at **https://ihelp-ops-live.vercel.app**, in the `ai-decodeds-projects`
 Vercel team. The older `ihelp-ops-ai-decodeds-projects.vercel.app` is an alias
 on the same project, so handouts printed with it still work.
 
-**Step 1 of `docs/04` is complete, and four changes have landed since.** The
-platform is healthy and signed-in use works. One thing is hard-blocked: nothing
-can be deployed, for a reason outside this repository.
+**Step 1 of `docs/04` is complete, and five changes have landed since.** The
+platform is healthy, signed-in use works, and production is current again.
 
 ---
 
 ## Start here tomorrow
 
-1. **Open the Vercel dashboard for `ai-decodeds-projects`.** Every deployment
-   for the last ten days comes back `BLOCKED`. Nothing in this codebase can fix
-   that — see *Deployment* below. A dashboard banner will usually name the
-   cause, and the API does not expose it.
+1. **Check who the Vercel CLI is logged in as** before deploying —
+   `vercel whoami` must say `ai-decoded`. It silently reverted to
+   `krishna-6771` on 9 Sep, which has no access to the team and turns every
+   command into `Error: Not authorized`.
 
-2. **Decide about the plan.** If it is the Team-on-Hobby mismatch, upgrading to
-   Pro fixes it and also retires `ops/deploy.mjs`, which exists only to route
-   around a deploy path the plan already refuses.
-
-3. **Use it for a week.** The next thing to build is whatever the first intern
+2. **Use it for a week.** The next thing to build is whatever the first intern
    gets stuck on.
 
 ---
 
-## Deployment — blocked, and not by anything here
+## Deployment — solved, and it was never the plan
 
-**Do not trust the previous version of this file on how to deploy.** It said to
-push to `main`. That has never worked for this project and does not now:
-`ihelp-ops` is a private organisation repository on the Hobby plan, which Vercel
-refuses outright. Deploys go through `node ops/deploy.mjs`, which builds locally
-and uploads prebuilt output to `ihelp-ops-live`, a second project with no
-repository attached.
+Deploy with **`node ops/deploy.mjs`**. It checks one thing and then runs
+`vercel deploy --prod`.
 
-That path now fails too. On 8–9 Sep, five attempts:
+**The commit author is the whole game.** Vercel refuses a deployment whose
+commit author lacks contributing access to the project:
 
-| Variant | Result |
-|---|---|
-| `node ops/deploy.mjs` (pull, build, flatten, deploy) | `BLOCKED` |
-| `vercel deploy --prebuilt --prod`, twice | `BLOCKED` |
-| `vercel deploy` — source upload, **preview** target | `BLOCKED` |
-| `vercel deploy --prebuilt --prod --scope <personal>` | *"You cannot set your Personal Account as the scope."* |
+> Deployment Blocked — the commit author did not have contributing access to the
+> project on Vercel. The Hobby Plan does not support collaboration for private
+> repositories.
 
-What this rules out: it is not a daily cap (the date rolled over mid-attempt and
-it still blocks), not the upload (two attempts uploaded fully and reached
-"Building…"), not production-specific (a preview blocks identically), not the
-symlink bug `ops/deploy.mjs` works around (flatten ran fine, 30 symlinks
-replaced), and not stale auth (`vercel whoami` answers throughout).
+On Hobby exactly one author may deploy: the account that owns the project —
+`aidecoded23@gmail.com`, GitHub `AI-Decoded`, Vercel `ai-decoded`. A commit by
+anyone else is refused. Commits here had been authored as `ammusharaff`, so
+every deployment for ten days was refused.
 
-It is also **not the commit-author theory** the previous version of this file
-recorded. The CLI is authenticated as `ai-decoded` / `aidecoded23@gmail.com`,
-which is the account that owns the team; and a preview deploy carrying the same
-git metadata blocks the same way.
+**This is not a reason to buy Pro.** Pro is needed only to let a *second* person
+deploy. One author needs no plan change. Keep the repo-local author set:
 
-The account state: team not blocked, billing `active`, nothing overdue, project
-not paused. The one anomaly is that `ai-decodeds-projects` is a **Team on the
-`hobby` plan**, and Hobby is a personal-account tier.
+```
+git config --local user.email aidecoded23@gmail.com
+```
 
-**`vercel ls` renders `BLOCKED` as `UNKNOWN`.** That is worth knowing, because
-it reads as a hung upload. Only the API tells the truth:
+`ops/deploy.mjs` now refuses early and names that address if HEAD is authored by
+anyone else, rather than spending a build to be told no.
+
+**Two things made this expensive to diagnose, both worth remembering.**
+
+`vercel ls` prints `BLOCKED` as **`UNKNOWN`** with no duration, which reads as a
+hung upload rather than a refusal. Only the API distinguishes them:
 
 ```
 GET /v6/deployments?projectId=…  ->  readyState: BLOCKED
 ```
 
-The last `READY` deployment is from 29 Aug. **Production therefore serves code
-from 29 Aug**: the sign-in fix and the conversation-dispatch feature are on
-`main` and are not live.
+And the plan *is* Hobby, and the team *is* a team, so "Team on the Hobby plan"
+looked like a sufficient explanation for a refusal it had nothing to do with. A
+preview deploy blocked too, which seemed to rule authorship out — it did not,
+because that commit had the same wrong author. Varying the target while holding
+the actual cause fixed proves nothing.
 
-Two one-off steps still apply whenever a deploy does land, both in
-`ops/deploy.mjs`'s closing note: Deployment Protection has to be off, and the
+**`--prebuilt` is no longer the path.** Once the author was right, the prebuilt
+upload failed with `errorCode: invalid_routes` at `process-and-upload-routes`:
+a locally built `.vercel/output/config.json` carries `transforms` route entries
+the platform rejects. Letting Vercel run the build makes its own builder write
+routes its own router accepts, and retires the symlink flattening this script
+used to do — that only ever mattered for a Windows-built prebuilt upload.
+
+Still true, and still one-off: Deployment Protection has to be off, and the
 deployment's callback URL has to be in Google's authorised redirect URIs or
 sign-in fails with `redirect_uri_mismatch`.
 
@@ -159,8 +158,7 @@ All pass on `main` against a clean Postgres, `test:assign` excepted — see belo
 
 | | |
 |---|---|
-| Every deployment returns `BLOCKED` | Plan-level, on Vercel's side. Nothing here fixes it |
-| Production runs code from 29 Aug | Consequence of the above, not a separate problem |
+| The Vercel CLI reverted to `krishna-6771` | `vercel login` as `aidecoded23@gmail.com`. Everything else is in place |
 
 ---
 

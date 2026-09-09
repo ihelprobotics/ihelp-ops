@@ -3,46 +3,57 @@
 //
 //   node ops/deploy.mjs
 //
-// Three steps, one of which is a workaround for a real bug, so this is a script
-// rather than a line in a README that somebody half-remembers.
+// One step, and one check that has to happen before it.
 //
-//   1. vercel build --prod          — build here, not on Vercel
-//   2. flatten the symlinks         — see below
-//   3. vercel deploy --prebuilt     — upload the finished output
+// THE COMMIT AUTHOR IS THE WHOLE GAME
+//
+// Vercel refuses a deployment whose commit author does not have contributing
+// access to the project, and says so:
+//
+//   Deployment Blocked — the commit author did not have contributing access to
+//   the project on Vercel. The Hobby Plan does not support collaboration for
+//   private repositories.
+//
+// On Hobby that means exactly one author can deploy: the account that owns the
+// project. Here that is aidecoded23@gmail.com, GitHub user AI-Decoded, Vercel
+// user ai-decoded. A commit authored by anyone else is refused with
+// `readyState: BLOCKED` — and `vercel ls` prints BLOCKED as UNKNOWN, so it
+// reads as a hung upload rather than a refusal. That misreading cost a day.
+//
+// This is not an argument for Pro. Pro is only needed to let a *second* person
+// deploy. One author needs no plan change, so the check below refuses early and
+// says which address to use, rather than spending a build to be told no.
+//
+//   git config --local user.email aidecoded23@gmail.com
+//
+// WHY NOT --prebuilt
+//
+// It used to build here and upload the output, to dodge a git-deploy refusal
+// that was really the author check above. That path is now actively worse: a
+// locally built .vercel/output/config.json carries `transforms` route entries
+// the platform rejects, and the deployment dies with
+//
+//   errorCode: invalid_routes, errorStep: process-and-upload-routes
+//
+// after a clean local build, which points at the routes rather than at the
+// version skew that produced them. Letting Vercel run the build means its own
+// builder writes routes its own router accepts. It also retires the symlink
+// flattening this script used to do — that only mattered for a Windows-built
+// prebuilt upload.
 //
 // WHY NOT JUST `git push`
 //
-// The ihelp-ops Vercel project cannot deploy at all: it is a private repository
-// owned by a GitHub organisation, and the team is on the Hobby plan, which
-// refuses that combination. Pushing produces a commit status of "Cannot deploy
-// from a private GitHub organization repository on the Hobby plan"; deploying
-// to that project from the CLI produces a deployment that sits at UNKNOWN and
-// never downloads its own files. Source upload, prebuilt upload and
-// git-disconnect all end the same way. It is a billing check, and there is no
-// flag that argues with it.
-//
-// So deployments go to a second project with no repository attached, which
-// builds and serves normally. When the plan changes, delete this script and go
-// back to pushing — that is the better arrangement, because a deployment linked
-// to a commit is traceable and this one is not.
-//
-// WHY THE SYMLINKS
-//
-// `vercel build` dedupes identical serverless functions by symlinking them —
-// thirty of them here, all the pages that compile to the same handler. Built on
-// Windows and uploaded, those arrive dangling, and the remote build dies with
-//
-//   ENOENT: no such file or directory, stat
-//   '/vercel/path0/.vercel/output/functions/api/agents/local.func'
-//
-// naming whichever one it reached first. Replacing each with a real copy costs
-// a few megabytes of upload and makes the deploy work.
+// The ihelp-ops project is a private repository owned by a GitHub organisation
+// on the Hobby plan, which Vercel will not build from. So deployments go to
+// ihelp-ops-live, a second project with no repository attached. When the plan
+// changes, delete this script and go back to pushing — a deployment linked to a
+// commit is traceable and this one is not.
 
 import { spawnSync } from "node:child_process";
-import { readdirSync, lstatSync, readlinkSync, rmSync, cpSync, existsSync } from "node:fs";
-import { join, dirname, resolve } from "node:path";
 
-const FUNCTIONS = ".vercel/output/functions";
+// The account that owns the Vercel project. Anything else is refused by Vercel
+// after a full build, so it is refused here first.
+const DEPLOY_AUTHOR = process.env.DEPLOY_AUTHOR || "aidecoded23@gmail.com";
 
 const run = (cmd, args) => {
   console.log(`\n$ ${cmd} ${args.join(" ")}`);
@@ -53,41 +64,33 @@ const run = (cmd, args) => {
   }
 };
 
-/** Replace every symlink under the built output with a real copy. */
-function flatten(dir) {
-  let n = 0;
-  for (const entry of readdirSync(dir)) {
-    const p = join(dir, entry);
-    const st = lstatSync(p);
-    if (st.isSymbolicLink()) {
-      const target = resolve(dirname(p), readlinkSync(p));
-      if (!existsSync(target)) {
-        console.error(`  ${p} points at ${target}, which does not exist. Stopping rather than uploading a broken tree.`);
-        process.exit(1);
-      }
-      rmSync(p, { recursive: true, force: true });
-      cpSync(target, p, { recursive: true });
-      n++;
-    } else if (st.isDirectory()) {
-      n += flatten(p);
-    }
-  }
-  return n;
-}
+const author = spawnSync("git", ["log", "-1", "--format=%ae"], { encoding: "utf8" })
+  .stdout.trim();
 
-run("vercel", ["pull", "--yes", "--environment=production"]);
-run("vercel", ["build", "--prod", "--yes"]);
+if (author !== DEPLOY_AUTHOR) {
+  console.error(`
+The commit about to be deployed is authored by
 
-if (!existsSync(FUNCTIONS)) {
-  console.error(`\nNo build output at ${FUNCTIONS}. Nothing to deploy.`);
+    ${author || "(no commit found)"}
+
+and Vercel will refuse it. On the Hobby plan only the account that owns the
+project may deploy, which here is ${DEPLOY_AUTHOR}. The refusal arrives as a
+deployment stuck in BLOCKED, which \`vercel ls\` displays as UNKNOWN, so it
+looks like a failed upload rather than a rejection.
+
+Fix the author and commit again:
+
+    git config --local user.email ${DEPLOY_AUTHOR}
+
+Nothing has been built or uploaded.
+`);
   process.exit(1);
 }
 
-console.log(`\n$ flatten ${FUNCTIONS}`);
-const n = flatten(FUNCTIONS);
-console.log(`  ${n} symlink${n === 1 ? "" : "s"} replaced with real copies`);
+console.log(`Deploying as ${author}, which owns the Vercel project.`);
 
-run("vercel", ["deploy", "--prebuilt", "--prod", "--yes"]);
+run("vercel", ["pull", "--yes", "--environment=production"]);
+run("vercel", ["deploy", "--prod", "--yes"]);
 
 console.log(`
 Deployed. Two things this script cannot do, both one-off:
