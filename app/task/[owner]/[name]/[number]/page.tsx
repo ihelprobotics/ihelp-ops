@@ -22,7 +22,7 @@ import { auth } from "@/auth";
 import { loadTask } from "@/app/lib/task";
 import { repoFromPath } from "@/app/lib/repos";
 import { assignsOthers } from "@/app/lib/assign";
-import { sql } from "@/lib/db";
+import { sql, dbErrorMessage } from "@/lib/db";
 import { TASK_CSS } from "./css";
 import TaskActions from "./actions";
 import Assignee from "./assignee";
@@ -63,7 +63,7 @@ export default async function TaskPage({
     try {
       task = await loadTask(repo, n);
     } catch (e: any) {
-      error = e?.message ?? String(e);
+      error = dbErrorMessage(e);
     }
   }
   if (!error && !task) notFound();

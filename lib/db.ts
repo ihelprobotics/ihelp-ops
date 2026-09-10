@@ -31,7 +31,20 @@ function client(): postgres.Sql {
     _sql = postgres(process.env.DATABASE_URL, {
       prepare: false,
       idle_timeout: 20,
-      max: 5,
+      // One connection per instance, not five.
+      //
+      // The transaction pooler is already the pool: it multiplexes many clients
+      // onto few Postgres backends, which is the whole reason port 6543 exists.
+      // A second pool in front of it holds backends open that this instance is
+      // not using, and serverless multiplies that by however many instances are
+      // warm — which is how a project runs out of connections while barely
+      // serving anyone. A request needs one connection at a time; this gives it
+      // exactly that.
+      max: 1,
+      // Fail in ten seconds with a message, rather than hanging until something
+      // upstream gives up. A page that eventually errors is bad; a page that
+      // hangs is worse, because nobody can tell it apart from a slow one.
+      connect_timeout: 10,
     });
   }
   return _sql;
@@ -124,4 +137,48 @@ export async function withUser<T>(
  */
 export async function assumeAppRole(tx: postgres.TransactionSql): Promise<void> {
   await tx.unsafe(`set local role ${APP_ROLE}`);
+}
+
+/**
+ * What to show a person when the database could not be reached.
+ *
+ * postgres.js reports transport failures the way a socket library does —
+ * `write CONNECTION_CLOSED aws-0-ap-northeast-2.pooler.supabase.com:6543`, or
+ * `authentication did not complete within 15000ms`. Both are accurate and
+ * neither tells the reader anything they can do. Worse, they read like a bug in
+ * the page they are standing on, when the platform is working and its database
+ * is not: during a Supabase incident every screen blamed itself.
+ *
+ * So a *connection* failure says the database is unreachable, says the platform
+ * is fine, and points at the two things worth checking. Everything else is
+ * passed through untouched — a constraint violation or a policy refusal is
+ * about what was asked for, and rewriting those would bury the answer.
+ *
+ * The driver's own words are kept on the end. They are what makes a report
+ * actionable to whoever has to fix it.
+ */
+export function dbErrorMessage(e: any): string {
+  const raw = e?.message ?? String(e);
+  const code = e?.code ?? "";
+
+  // postgres.js uses these for transport, not for anything SQL said.
+  const transport =
+    code === "CONNECTION_CLOSED" ||
+    code === "CONNECTION_ENDED" ||
+    code === "CONNECTION_DESTROYED" ||
+    code === "CONNECT_TIMEOUT" ||
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    code === "ETIMEDOUT" ||
+    /CONNECTION_(CLOSED|ENDED|DESTROYED)|CONNECT_TIMEOUT|authentication did not complete|ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i.test(raw);
+
+  if (!transport) return raw;
+
+  return (
+    "The database is not answering, so this page cannot be built. " +
+    "The platform itself is fine and nothing you did caused this — signing in " +
+    "again will not help. Check status.supabase.com for an incident, and the " +
+    "Supabase dashboard in case the project is paused. " +
+    `/api/health reports the same thing. The driver said: ${raw}`
+  );
 }

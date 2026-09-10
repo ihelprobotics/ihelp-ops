@@ -17,7 +17,7 @@
 // monitor can alert on the status code alone.
 
 import { NextResponse } from "next/server";
-import { sql } from "@/lib/db";
+import { sql, dbErrorMessage } from "@/lib/db";
 import { repos } from "@/app/lib/repos";
 import { cacheSize } from "@/app/lib/cache";
 import { githubRequestsSent } from "@/app/lib/github";
@@ -47,7 +47,7 @@ export async function GET() {
     const [row] = await sql<{ n: number }[]>`select count(*)::int as n from app_user where active`;
     checks.database = { ok: true, detail: `${row.n} active accounts, answered in ${Date.now() - started}ms` };
   } catch (e: any) {
-    checks.database = { ok: false, detail: e?.message ?? String(e) };
+    checks.database = { ok: false, detail: dbErrorMessage(e) };
   }
 
   // ---- GitHub, and how much of the hour is left --------------------------

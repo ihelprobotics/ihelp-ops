@@ -25,7 +25,7 @@
 
 import { randomUUID } from "node:crypto";
 
-const { sql, withUser, assumeAppRole, APP_ROLE } = await import("../lib/db.ts");
+const { sql, withUser, assumeAppRole, APP_ROLE, dbErrorMessage } = await import("../lib/db.ts");
 
 // A green run against no database must not imply isolation holds.
 if (!process.env.DATABASE_URL) {
@@ -167,6 +167,39 @@ try {
   is("\nnothing was left behind", leftover, 0);
 } finally {
   await sql.end();
+}
+
+// =========================================================================
+console.log("\n— what a reader is told when the database is gone —");
+// =========================================================================
+//
+// During a Supabase incident every screen showed
+// `write CONNECTION_CLOSED aws-0-…pooler.supabase.com:6543`, which is true and
+// useless: it reads as a bug in the page you are standing on, so people signed
+// in again and again at a platform that was working perfectly and a database
+// that was not. A transport failure now says so, and says where to look.
+//
+// The other half matters as much: an error that is *about what was asked for*
+// must survive untouched. Other suites here assert on 23505 and 42501, and a
+// helper that rewrote those would bury the answer and break them.
+const mkErr = (msg, code) => Object.assign(new Error(msg), code ? { code } : {});
+
+for (const [label, err] of [
+  ["the incident's own error is rewritten", mkErr("write CONNECTION_CLOSED aws-0-ap-northeast-2.pooler.supabase.com:6543", "CONNECTION_CLOSED")],
+  ["so is a stalled authentication",        mkErr("Failed to connect to database: authentication did not complete within 15000ms")],
+  ["so is a refused connection",            mkErr("connect ECONNREFUSED 10.0.0.1:6543", "ECONNREFUSED")],
+  ["so is a project that no longer exists", mkErr("(ENOTFOUND) tenant/user postgres.gone not found", "XX000")],
+]) {
+  const out = dbErrorMessage(err);
+  is(label, out.includes("database is not answering"), true);
+  is("  and the driver's own words are kept", out.includes(err.message), true);
+}
+
+for (const [label, err] of [
+  ["a unique violation is left alone", mkErr('duplicate key value violates unique constraint "nudge_once_per_day"', "23505")],
+  ["so is a policy refusal",           mkErr("new row violates row-level security policy", "42501")],
+]) {
+  is(label, dbErrorMessage(err), err.message);
 }
 
 console.log(bad === 0 ? "\nall passed\n" : `\n${bad} FAILED\n`);
