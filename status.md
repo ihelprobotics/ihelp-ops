@@ -4,8 +4,18 @@ Where the build stands, what is blocking, and what to do first tomorrow.
 
 Repo: `ihelprobotics/ihelp-ops` (private) · branch `main`.
 Deployed at **https://ihelp-ops-live.vercel.app**, in the `ai-decodeds-projects`
-Vercel team. The older `ihelp-ops-ai-decodeds-projects.vercel.app` is an alias
-on the same project, so handouts printed with it still work.
+Vercel team.
+
+`ihelp-ops-ai-decodeds-projects.vercel.app` is **a different project**, not an
+alias of this one — an earlier version of this file said otherwise and cost an
+afternoon. It belongs to the `ihelp-ops` project, which cannot deploy at all
+(private organisation repository on the Hobby plan) and still serves a build
+from 27 Aug. Everything added since — `/agents`, `/plan` — returns 404 there
+while the rest of the site works, which is a convincing way to look broken.
+
+They point at the same database, so `/api/health` answers identically on both.
+Tell them apart by `x-vercel-id`: the live one routes `bom1::iad1::…`, the stale
+one does not.
 
 **Step 1 of `docs/04` is complete, and five changes have landed since.** The
 platform is healthy, signed-in use works, and production is current again.

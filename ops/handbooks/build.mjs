@@ -30,7 +30,12 @@ const { PERMISSIONS, ROLES } = await import(
   pathToFileURL(join(ROOT, "app", "lib", "roles.ts")).href
 );
 
-const URL_ = "https://ihelp-ops-ai-decodeds-projects.vercel.app";
+// The live platform. NOT ihelp-ops-ai-decodeds-projects.vercel.app — that is a
+// different Vercel project, `ihelp-ops`, which cannot deploy at all (private
+// organisation repository on the Hobby plan) and still serves a build from
+// before /agents and /plan existed. Handbooks printed with that URL sent people
+// to a stale site where half the product 404s.
+const URL_ = "https://ihelp-ops-live.vercel.app";
 
 // ---------------------------------------------------------------------------
 // What each role is for, and what their day looks like

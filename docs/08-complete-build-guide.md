@@ -97,7 +97,7 @@ symptom is recognisable if someone changes them.
    - **Authorised redirect URIs** — add both now:
      ```
      http://localhost:3000/api/auth/callback/google
-     https://ihelp-ops.vercel.app/api/auth/callback/google
+     https://ihelp-ops-live.vercel.app/api/auth/callback/google
      ```
      The second does not exist yet. Add it anyway; coming back here later is
      how people lose twenty minutes at midnight.
@@ -642,8 +642,8 @@ gh repo create ihelp-ops --private --source=. --push
 3. **Environment Variables** — add every line from `.env.local`, with two
    changed:
    ```
-   AUTH_URL=https://ihelp-ops.vercel.app
-   PLATFORM_URL=https://ihelp-ops.vercel.app
+   AUTH_URL=https://ihelp-ops-live.vercel.app
+   PLATFORM_URL=https://ihelp-ops-live.vercel.app
    ```
 4. Add `RESEND_API_KEY`, `DIGEST_TO`, and `CRON_SECRET` (another
    `openssl rand -hex 24`).
@@ -655,8 +655,31 @@ Vercel gives you the real domain. Go back to Google Cloud → Credentials → yo
 client → confirm the authorised redirect URI matches it **exactly**:
 
 ```
-https://ihelp-ops.vercel.app/api/auth/callback/google
+https://ihelp-ops-live.vercel.app/api/auth/callback/google
 ```
+
+Exactly means exactly: `https`, no trailing slash, and the domain the app
+actually runs on. Google matches the string, not the site.
+
+**This is the step everybody skips, and it fails loudly and late** — the app
+works, sign-in reaches Google, and Google refuses with
+
+```
+Error 400: redirect_uri_mismatch
+```
+
+which names nothing you can act on. To find out what your deployment is really
+sending, ask it rather than guessing:
+
+```bash
+CSRF=$(curl -s -c /tmp/j https://<your-domain>/api/auth/csrf | jq -r .csrfToken)
+curl -s -b /tmp/j -o /dev/null -D - -X POST   https://<your-domain>/api/auth/signin/google   --data-urlencode "csrfToken=$CSRF" | grep -i '^location:'
+```
+
+The `redirect_uri` in that Location header is the string Google needs, verbatim.
+
+Add one entry per domain the platform answers on. A project with a team alias
+has two, and signing in on the one you forgot fails exactly like this.
 
 **Check:** sign in on the live URL.
 

@@ -3,7 +3,7 @@
 For everyone at iHelp — technical or not. Read once, then keep it open for the
 first week.
 
-**https://ihelp-ops-ai-decodeds-projects.vercel.app**
+**https://ihelp-ops-live.vercel.app**
 
 ---
 
