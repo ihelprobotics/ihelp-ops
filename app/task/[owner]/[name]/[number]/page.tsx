@@ -160,6 +160,7 @@ export default async function TaskPage({
             <h2>Do</h2>
             <div className="card">
               <TaskActions
+                href={`/api/tasks/${repo}/${task.number}`}
                 number={task.number}
                 hasBranch={task.branches.length > 0}
                 branch={task.prBranch ?? task.branches[0] ?? null}

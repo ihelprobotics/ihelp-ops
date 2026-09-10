@@ -3,7 +3,7 @@
 // The buttons. Everything else on this page is a server component, because
 // everything else is a fact being read rather than an action being taken.
 //
-// Each action posts to /api/tasks/[number] and then calls router.refresh(),
+// Each action posts to `href` and then calls router.refresh(),
 // which re-runs the server component against GitHub. Nothing here keeps its own
 // idea of the task's state: the state is what GitHub says a moment after the
 // call, not what this component hoped would happen.
@@ -12,6 +12,23 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 type Props = {
+  /**
+   * Where the actions post — `/api/tasks/<owner>/<name>/<n>`, built by the page
+   * that already knows all three.
+   *
+   * This was `/api/tasks/${number}` until it was not. The route moved under
+   * [owner]/[name] when the platform grew past one repository, and the board
+   * and the assignee picker were both updated; this component was missed, so
+   * every button in this card posted to a path matching no route. Next answered
+   * with its HTML 404 page, the non-JSON branch below read that as a login
+   * page, and the card reported "Your session has expired" — which sent people
+   * to sign in again, repeatedly, on a session that was never the problem.
+   *
+   * The path is handed in rather than assembled here for the same reason
+   * assignee.tsx takes one: two components deriving the same URL is two places
+   * for it to drift, and this is what that drift looks like.
+   */
+  href: string;
   number: number;
   hasBranch: boolean;
   branch: string | null;
@@ -22,7 +39,7 @@ type Props = {
 };
 
 export default function TaskActions(props: Props) {
-  const { number, hasBranch, branch, prNumber, prState, canAct, whyNot } = props;
+  const { href, number, hasBranch, branch, prNumber, prState, canAct, whyNot } = props;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
@@ -33,15 +50,25 @@ export default function TaskActions(props: Props) {
   async function post(action: string, extra: Record<string, unknown> = {}) {
     setErr(""); setSaid(""); setBusy(action);
     try {
-      const res = await fetch(`/api/tasks/${number}`, {
+      const res = await fetch(href, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...extra }),
       });
-      // A session that expired while this tab was open is answered by the
-      // middleware with the login page. Calling .json() on HTML throws
-      // "Unexpected token '<'", which describes a parser and not the problem.
-      if (res.redirected || !res.headers.get("content-type")?.includes("json")) {
+
+      const json = res.headers.get("content-type")?.includes("json");
+
+      // An expired session is answered by the middleware with the login page,
+      // and calling .json() on HTML throws "Unexpected token '<'" — a parser
+      // error that describes nothing anybody can act on. So HTML is caught. But
+      // it is only an expired session when the server is *redirecting*: a 404
+      // is also HTML, and reading one as a login page is how a route that had
+      // moved spent weeks telling people to sign in again.
+      if (!json && res.status === 404) {
+        setErr(`No route answered ${href}. That is a bug in this page, not something you can fix by signing in again — the address it posts to does not exist on the server.`);
+        return;
+      }
+      if (res.redirected || !json) {
         setErr("Your session has expired. Reload the page to sign in again.");
         return;
       }

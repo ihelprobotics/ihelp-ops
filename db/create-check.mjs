@@ -147,6 +147,36 @@ try {
   is("  at ten per cent — opened, nothing done yet", onBoard?.progress, 10);
   is("  with nobody's name on it", onBoard?.assignee, null);
 
+  // =======================================================================
+  console.log("\n— the buttons post somewhere that exists —");
+  // =======================================================================
+  //
+  // Every suite here drives the API directly, with a path it builds itself.
+  // None of them ever asked what path the *page* builds, so when the route
+  // moved under [owner]/[name] for multiple repositories, the task page kept
+  // posting to /api/tasks/<n>. That matches no route, Next answered with its
+  // HTML 404 page, and the card read the HTML as a login page and said "Your
+  // session has expired" — so Start task, Open pull request, Merge and Comment
+  // were all dead, and every report of it pointed at sessions.
+  //
+  // A client component's props are in the server-rendered payload, so the
+  // paths it will post to can be read off the page without a browser.
+  const taskPage = await fetch(`${BASE}/task/${target.full}/${out.number}`, {
+    headers: { Cookie: await cookieFor(eng, cn) },
+  });
+  is("the task page renders", taskPage.status, 200);
+  const taskHtml = await taskPage.text();
+
+  const paths = [...taskHtml.matchAll(/\/api\/tasks\/[A-Za-z0-9._\/-]+/g)].map((m) => m[0]);
+  is("it hands the client at least one task API path", paths.length > 0, true);
+
+  // owner/name/number — three segments after /api/tasks. A bare number is the
+  // shape that was broken.
+  const malformed = paths.filter((p) => !/^\/api\/tasks\/[^/]+\/[^/]+\/\d+$/.test(p));
+  is("and every one of them names owner, repo and number", malformed, []);
+  is("  including the one the action buttons use",
+     paths.includes(`/api/tasks/${target.full}/${out.number}`), true);
+
 } finally {
   console.log("\n— cleanup —");
   if (opened) {
