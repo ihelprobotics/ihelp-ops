@@ -258,6 +258,22 @@ minutes later there's a pull request waiting for you.
 The fast thing is cheap. The consequential thing is evidenced. Use the first to
 work out what to do, and the second to do it.
 
+### Putting an agent on a task
+
+Agents are chosen on a **task's page**, not on the board. The board shows tasks
+and their progress only.
+
+Every agent can be talked to. The tile says whether you can also run it — the
+draft agents (Deployer, Cloud, Social, Outreach, Lead Gen) are talk-only.
+
+**Have it do this** offers two ways to run:
+
+- **Run now** — runs through the Claude API and is done in a few minutes. It
+  reads and writes files, but cannot run tests.
+- **Run in GitHub Actions** — slower, and can build and test.
+
+Both end in a pull request that a human reviews and merges.
+
 ### Talking to one
 
 Open a task, scroll to **Ask an agent**, pick who you want and type. The answer
