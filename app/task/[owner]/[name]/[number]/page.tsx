@@ -177,7 +177,9 @@ export default async function TaskPage({
           </section>
 
           <section>
-            <h2>Ask an agent</h2>
+            {/* The agents live here rather than on the board: choosing one
+                happens with the issue it will read in front of you. */}
+            <h2>Agents</h2>
             <div className="card">
               <Chat
                 owner={p.owner}

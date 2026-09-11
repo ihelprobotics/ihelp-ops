@@ -18,6 +18,7 @@
     "test:chat": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/chat-check.mjs",
     "test:create": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/create-check.mjs",
     "test:dispatch": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/dispatch-check.mjs",
+    "test:direct": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/direct-check.mjs",
     "test:plan": "node --import ./db/alias.mjs --env-file-if-exists=.env.local db/plan-check.mjs"
   },
   "dependencies": {

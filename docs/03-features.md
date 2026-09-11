@@ -13,17 +13,29 @@ Google sign-in only. On first sign-in, upsert into `app_user` by email.
 ---
 
 ## `/` — Task board
-- Open issues read live from GitHub (`OPS_REPO`), never mirrored.
-- Each task shows number, title, assignee, labels, and derived progress.
-- Selecting a task arms the agent grid.
-- Agent grid: tiles gated by the signed-in user's `agent_tier`. Locked tiles
-  visible, greyed, with the reason. Draft/advisory agents shown as
-  "human owner only".
-- Run dispatches and shows status until the PR URL arrives.
-- Unlinked GitHub account: banner explaining why, run buttons disabled.
 
-**Done when:** a real issue appears, pressing Run on `scribe` produces a PR in
-the repo, and `agent_run` has a row with cost.
+Tasks and their progress, and nothing else. No agents — those are on the task
+page, beside the issue they will read.
+
+- Open issues read live from every configured repository, never mirrored.
+- Four columns — **Not started**, **In progress**, **In review**, **Approved** —
+  each a band of the progress ladder (below 20, 20–59, 60–89, 90 and up). A card
+  is in a column because of what GitHub reports; nobody moves a card, and there
+  is nothing to drag.
+- Each card: repository (when there is more than one) and number, title, a
+  progress bar with the stage that produced it and the commit count, up to three
+  labels, the assignee or "Nobody has this", and when it last changed.
+- Your own cards are marked at the edge. An unassigned card has **Take it**.
+- Filters in the URL: Everything / Mine / Unassigned, and a repository. A filter
+  naming a repository that is not on the board says so rather than being ignored.
+- A repository that could not be read is named with its error; an empty board
+  says which repositories were read; zero recorded events explains why every
+  card is in Not started.
+- Unlinked GitHub account: banner explaining why they can read but not take.
+
+**Done when:** a real issue appears in Not started, taking it puts your name on
+the card without a reload, and pushing a branch for it moves it to In progress
+with nobody touching the platform.
 
 ---
 
@@ -63,10 +75,20 @@ editable by anyone on GitHub who has never heard of this platform.
   (`vscode.dev/github/<repo>/tree/<branch>`), and the terminal command.
 - Start task creates `task/<issue>/<slug>` if absent.
 - Comments, mirrored to the GitHub issue.
-- Agent runs against this task, with cost.
+- **Agents.** A grid of every agent: the eight code agents, then the five draft
+  agents. Any tile can be talked to. Its last line says whether you can also run
+  it — gated by `agent_tier`, with the reason on a locked tile; draft agents say
+  their human owner runs them.
+- **Have it do this**, with an optional published brief and two ways to run:
+  **Run now** (through the Claude API, streamed step by step, ending in a pull
+  request) and **Run in GitHub Actions**. Unlinked account: the reason instead of
+  the button.
+- Agent runs against this task, with status, pull request and cost.
 
 **Done when:** starting a task creates the branch, the VS Code link opens it,
-and a commit pushed from VS Code appears here within a minute of the webhook.
+and a commit pushed from VS Code appears here within a minute of the webhook;
+and Run now on `scribe` opens a pull request labelled `agent-authored`, with an
+`agent_run` row carrying its cost.
 
 ---
 

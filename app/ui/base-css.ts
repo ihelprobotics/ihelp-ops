@@ -330,8 +330,47 @@ export const BASE_CSS = `
   .ask textarea { min-height: 46px; }
   .ask .go { flex: 0 0 auto; }
 
+  .dispatch-go { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .dispatch-live { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .dispatch-live .live { align-self: stretch; }
+
+  /* ---- choosing an agent --------------------------------------------
+     Every tile can be talked to; the last line says whether it can also be
+     run. A tile you cannot run is quieter, never hidden. */
+  .agrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .atile {
+    display: flex; flex-direction: column; gap: 2px; min-height: 44px; text-align: left;
+    font: inherit; color: inherit; cursor: pointer; padding: 9px 11px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .atile:hover:not(:disabled) { border-color: var(--ink-3); }
+  .atile.on { border-color: var(--accent); background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--accent); }
+  .atile b { font-size: 14px; font-weight: 600; }
+  .atile span { font-size: 12px; color: var(--ink-2); line-height: 1.35; }
+  .atile em { font-style: normal; font-size: 11px; font-weight: 500; color: var(--accent); margin-top: 3px; }
+  .atile.talk em { color: var(--ink-3); }
+  .atile:disabled { cursor: not-allowed; opacity: .6; }
+
+  /* ---- a run, watched ----------------------------------------------- */
+  .live {
+    display: flex; flex-direction: column; gap: 10px; padding: 14px;
+    border-radius: var(--radius-sm); background: var(--sunken); box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .live-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .live-log {
+    margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px;
+    max-height: 240px; overflow-y: auto; font-family: var(--mono); font-size: 12.5px;
+  }
+  .live-log li { color: var(--ink-2); overflow-wrap: anywhere; }
+  .live-log li.tool::before { content: "› "; color: var(--ink-3); }
+  .live-log li.failed, .live-log li.pending { color: var(--ink-3); }
+  .live .ok, .live .error { margin: 0; }
+  .live-said .body { font-size: 13.5px; margin-top: 6px; }
+
   @media (max-width: 640px) {
     .msg { max-width: 94%; }
     .msgs { max-height: 60vh; }
+    .dispatch-go { justify-content: stretch; }
   }
 `;

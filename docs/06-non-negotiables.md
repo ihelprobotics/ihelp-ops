@@ -32,9 +32,9 @@ asking the QA agent what a test is for. What does still apply, and is kept:
 - There is no presence, no unread count, no notification, and no way to send a
   message to another human. Those are the parts Discord does better.
 
-See "Agent execution — the three paths" in `docs/01-architecture.md` for what
-the conversation can and cannot do, and for how Path C hands work to Path A
-without being able to do that work itself.
+See "Agent execution — the four paths" in `docs/01-architecture.md` for what
+the conversation can and cannot do, and for how Path C hands work to Path A or
+Path D without being able to do that work itself.
 
 **A second approval system.** GitHub branch protection and CODEOWNERS decide
 who approves. The platform's merge button calls the API and can be refused;
@@ -45,6 +45,14 @@ vscode.dev do these better. Link out.
 
 **Push and pull from the web.** The uncommitted files are on a laptop; this
 server has never seen them. Not a limitation to engineer around.
+
+That is still true of a person's work. On 2026-09-11 an agent run through the
+Claude API (Path D) was added, which does write to GitHub from the server — and
+what makes it compatible with this rule is how little it can do. It writes only
+files it read from GitHub in the same run, only as one new commit on its own
+`agent/<agent>/issue-<n>` branch, and only to open a pull request. It cannot push
+to the default branch, cannot change a workflow file, cannot merge, and cannot
+see anything on anyone's laptop.
 
 **Per-user API keys.** Credential sprawl with no upside; attribution does not
 need them.
@@ -67,13 +75,19 @@ manager files. Enforced in row-level security, not in a guideline.
 delivery manager reads only what they wrote. Reads by anyone who is neither
 author nor subject are logged, and the subject can see that log.
 
-**Draft and advisory agents are never dispatchable from the platform.**
-Deployer, Cloud, Social, Outreach, Lead Gen. Their human owner runs them.
+**Draft and advisory agents are never run from the platform.** Deployer, Cloud,
+Social, Outreach, Lead Gen. Their human owner runs them. Neither Run now nor
+GitHub Actions will start one, for anyone, founder included. Since 2026-09-11
+they can be *talked to* on a task: a draft in a private conversation leaves
+nothing behind and changes nothing, and it is the human who decides what to do
+with it.
 
 **Agent tiers gate the grid.** week1: scribe, annotator, qa. week2: adds
 frontend. full: adds fullstack, ai-developer, integrator, architect. Locked
 tiles stay visible with the reason showing — a greyed tile that explains itself
-teaches; a hidden one confuses.
+teaches; a hidden one confuses. The grid is on the task page, beside the issue
+the agent will read; the board shows tasks and their progress only. Tiers gate
+running, by either path, and never talking.
 
 **Two concurrent agent runs per person.** Same WIP limit as everything else.
 

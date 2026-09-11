@@ -10,100 +10,31 @@
 // link is built from both.
 //
 // Progress is derived from what actually happened — never typed by anyone. All
-// seven stages from docs/02-data-model.md are computed here:
+// seven stages from docs/02-data-model.md are computed, in app/lib/board.ts,
+// which the board page reads directly:
 //
 //   opened 10 · branched 20 · first commit 40 · PR open 60
 //   · checks green 75 · approved 90 · merged 100
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { sql } from "@/lib/db";
-import { stageOf, branchIsForTask } from "@/app/lib/progress";
+import { dbErrorMessage } from "@/lib/db";
+import { loadBoard } from "@/app/lib/board";
 import { repos, taskHref, type Repo } from "@/app/lib/repos";
-import { openWorkFor, noteNewTask } from "@/app/lib/work";
+import { noteNewTask } from "@/app/lib/work";
 import { openTask, assign } from "@/app/lib/github";
-
-type Row = {
-  repo: string;
-  number: number;
-  title: string;
-  url: string;
-  href: string;
-  assignee: string | null;
-  labels: string[];
-  progress: number;
-  updated_at: string;
-};
 
 export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
 
-  let list: Repo[];
+  // A configuration, GitHub or database failure is reported by name, never as
+  // an empty task list.
   try {
-    list = await repos();
+    return NextResponse.json(await loadBoard());
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: dbErrorMessage(e) }, { status: 500 });
   }
-
-  if (!process.env.GH_DISPATCH_TOKEN) {
-    return NextResponse.json({ error: "GH_DISPATCH_TOKEN is not set, so GitHub cannot be read." }, { status: 500 });
-  }
-
-
-  // One repository failing must not blank the others. Each is read
-  // independently and reports its own problem, so a token that lost access to
-  // one repo shows an error beside that repo rather than an empty board.
-  //
-  // The read itself is shared and short-lived — see app/lib/work.ts. Without
-  // that, this endpoint alone spends twenty-six GitHub requests per load.
-  const perRepo = await Promise.all(list.map((r) => openWorkFor(r.full)));
-
-  // Evidence for every task on the board, in two queries rather than per repo.
-  const names = perRepo.map((p) => p.repo);
-  const numbers = perRepo.flatMap((p) => p.issues.map((i: any) => i.number));
-
-  const [events, commits] = numbers.length
-    ? await Promise.all([
-        sql<{ kind: string; repo: string; number: number }[]>`
-          select kind, repo, number from gh_event
-           where repo = any(${names}) and number = any(${numbers})`,
-        sql<{ repo: string; issue_number: number }[]>`
-          select distinct repo, issue_number from commit_event
-           where repo = any(${names}) and issue_number = any(${numbers})`,
-      ])
-    : [[], []];
-
-  const committed = new Set(commits.map((c) => `${c.repo}#${c.issue_number}`));
-
-  const tasks: Row[] = perRepo.flatMap((p) =>
-    p.issues.map((i: any): Row => ({
-      repo: p.repo,
-      number: i.number,
-      title: i.title,
-      url: i.html_url,
-      href: taskHref(p.repo, i.number),
-      // Exactly one name, or none. GitHub allows several; this platform does
-      // not, and showing the first of many would hide that it happened.
-      assignee: i.assignee?.login ?? null,
-      labels: (i.labels || []).map((l: any) => l.name),
-      progress: stageOf({
-        kinds: events.filter((e) => e.repo === p.repo && e.number === i.number).map((e) => e.kind),
-        hasCommit: committed.has(`${p.repo}#${i.number}`),
-        hasBranch: p.branches.some((b: string) => branchIsForTask(b, i.number)),
-      }),
-      updated_at: i.updated_at,
-    }))
-  );
-
-  return NextResponse.json({
-    repos: perRepo.map((p) => ({ repo: p.repo, error: p.error, open: p.issues.length })),
-    // Reported so an operator can tell "nothing has happened yet" apart from
-    // "the webhook was never connected" — two very different situations that a
-    // bare set of 10% bars would look identical for.
-    events_recorded: events.length,
-    tasks,
-  });
 }
 
 /**

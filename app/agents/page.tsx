@@ -22,7 +22,7 @@ import { auth } from "@/auth";
 import { sql, withUser } from "@/lib/db";
 import { repos } from "@/app/lib/repos";
 import { openWorkForAll } from "@/app/lib/work";
-import { AGENTS, CHAT_AGENTS, agentName, canDispatch } from "@/app/lib/agents";
+import { AGENTS, DRAFT_AGENTS, HUMAN_OWNER_ONLY, CHAT_AGENTS, agentName, canDispatch } from "@/app/lib/agents";
 import { BASE_CSS } from "@/app/ui/base-css";
 import Nav from "@/app/ui/nav";
 import Chat from "@/app/task/[owner]/[name]/[number]/chat";
@@ -145,7 +145,7 @@ export default async function AgentsPage({
 
       <div className="agents-layout">
         <aside className="agent-list">
-          {AGENTS.map((a) => {
+          {[...AGENTS, ...DRAFT_AGENTS].map((a) => {
             const can = canDispatch(a.id, me);
             return (
               <Link
@@ -156,7 +156,11 @@ export default async function AgentsPage({
                 <span className="agent-name">{a.name}</span>
                 <span className="agent-blurb">{a.blurb}</span>
                 <span className={"tag " + (can.ok ? "on" : "")}>
-                  {can.ok ? "can be dispatched" : "talk only, at your tier"}
+                  {can.ok
+                    ? "talk or run"
+                    : HUMAN_OWNER_ONLY.includes(a.id)
+                    ? "talk only — its owner runs it"
+                    : "talk only, at your tier"}
                 </span>
               </Link>
             );
@@ -257,6 +261,7 @@ export default async function AgentsPage({
                 initialAgent={agent}
                 history={history}
                 me={me}
+                picker={false}
               />
             )}
           </div>
