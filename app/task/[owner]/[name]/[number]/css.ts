@@ -13,7 +13,7 @@ ${PEOPLE_CSS}
   .labels { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
   .label {
     font-size: 12px; font-weight: 500; color: var(--ink-2);
-    background: rgba(118,118,128,.09); border-radius: 100px; padding: 3px 10px;
+    background: rgba(107,100,88,.09); border-radius: 100px; padding: 3px 10px;
     text-decoration: none;
   }
   a.label { color: var(--accent); }

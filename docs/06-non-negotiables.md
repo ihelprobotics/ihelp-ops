@@ -14,6 +14,14 @@ schema carries a comment saying this, so nobody adds it later.
 Same for goals: report evidence linked and evidence landed as counts, never a
 score against a person's name.
 
+The MITRA build board (`/mitra`, added 2026-10-10) is the one place a status is
+typed, and only for what has not started: it is a plan, and nothing has
+happened yet that could prove where a planned task is. "Start in Ops" turns a
+row into a GitHub issue, and from that moment its column is derived from
+GitHub like every other task. The store refuses a typed status for a linked row
+and refuses to delete it (`app/lib/mitra-store.ts`), so a stale tab cannot
+undo that either.
+
 **Chat between people.** Discord does DMs, presence, threads, mobile and
 notifications properly. Build task comments that mirror to GitHub issue
 comments. Ingest Discord *channels and threads* for the record — **never DMs.**

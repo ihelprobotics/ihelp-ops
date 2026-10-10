@@ -13,7 +13,7 @@ export const BOARD_CSS = `
   .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0 18px; }
   .seg {
     display: inline-flex; gap: 2px; padding: 2px;
-    background: rgba(118,118,128,.10); border-radius: 10px;
+    background: rgba(107,100,88,.10); border-radius: 10px;
   }
   .seg a, .seg .off {
     display: inline-flex; align-items: center; gap: 6px; min-height: 32px;
@@ -33,7 +33,7 @@ export const BOARD_CSS = `
 
   /* ---- columns ----------------------------------------------------- */
   .cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
-  .col { background: rgba(118,118,128,.06); border-radius: var(--radius); padding: 10px; min-width: 0; }
+  .col { background: rgba(107,100,88,.06); border-radius: var(--radius); padding: 10px; min-width: 0; }
   .col.todo   { --dot: var(--ink-3); }
   .col.doing  { --dot: var(--amber); }
   .col.review { --dot: var(--accent); }
