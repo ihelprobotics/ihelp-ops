@@ -19,8 +19,25 @@ typed, and only for what has not started: it is a plan, and nothing has
 happened yet that could prove where a planned task is. "Start in Ops" turns a
 row into a GitHub issue, and from that moment its column is derived from
 GitHub like every other task. The store refuses a typed status for a linked row
-and refuses to delete it (`app/lib/mitra-store.ts`), so a stale tab cannot
+and refuses to delete it (`app/lib/plan-store.ts`), so a stale tab cannot
 undo that either.
+
+Assignment follows the same line (2026-10-11). A planned row carries no typed
+assignee: assigning it opens its issue with that person on it, under the rules
+in `app/lib/assign.ts`, and from then on the name is GitHub's. The store drops a
+typed assignee for a linked row as it drops a typed status. Leads can make every
+planned task in the current filter an issue at once (`/api/boards/<board>/start-many`,
+`canPlan`, ten per request, stopping at the first GitHub refusal). The Ops
+board shows the plan as one card that opens `/mitra`, not as rows in its
+columns, because a plan row would look exactly like an issue nobody picked up.
+
+The SENTINEL elderly-care build board (`/sentinel`, 2026-10-11) is a second
+plan under exactly these rules — same store, its own keys, its own column words
+(`app/lib/plan-boards.ts`). Each plan also has a standalone copy outside Ops
+(mitra-build-board.vercel.app, sentinel-build-board.vercel.app) that edits the
+same rows **without sign-in**: anyone with the link can read and edit the plan,
+including any names typed on planning rows. They show no live GitHub status and
+cannot start a task; a linked row there is marked as following its issue in Ops.
 
 **Chat between people.** Discord does DMs, presence, threads, mobile and
 notifications properly. Build task comments that mirror to GitHub issue

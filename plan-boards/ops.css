@@ -1,0 +1,12 @@
+/* iHelp Ops additions */
+.opshome{margin-right:4px;color:var(--gold-ink);text-decoration:none}
+.tag.ops{background:#E8F0F3;color:var(--s-prog);font-weight:600}
+.tcard.linked{cursor:pointer}
+.opsbox{border:1px solid var(--line2);background:var(--wash);border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:14px}
+.opsbox p{margin:6px 0 0}
+.opsbox a{color:var(--gold-ink);font-weight:500}
+.opsrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.opsrow select{flex:1 1 200px;min-width:0}
+.opserr{color:var(--s-block)}
+.opsbulk select{flex:0 1 240px;min-width:0}
+.opsbulk>span:first-child{flex:1 1 320px}

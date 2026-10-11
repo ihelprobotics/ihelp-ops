@@ -1,0 +1,13 @@
+/* SENTINEL presentation, held to the MITRA board's standard. Keeps SENTINEL's
+   teal palette; takes MITRA's display face and fixes what SENTINEL's extra
+   column, longer ids and extra filter did to the layout. */
+:root{--display:"Cormorant","Cormorant Garamond",Georgia,"Times New Roman",serif}
+/* SEN-001 is wider than F-01: keep the id on one line, let the area give way */
+.mono-id{white-space:nowrap;flex:none;min-width:58px}
+.tcard .row1{min-width:0}
+.tcard .row1 .epic-chip{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* six columns (SENTINEL has Existing) fit the width MITRA's five do */
+.board{grid-template-columns:repeat(6,minmax(188px,1fr));gap:12px}
+/* one filter row, as on MITRA, despite the extra Priority filter */
+.filters input[type=search]{flex:1 1 170px;min-width:140px}
+.filters select.field{flex:0 1 auto;min-width:0;max-width:150px;text-overflow:ellipsis}

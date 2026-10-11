@@ -1,0 +1,9 @@
+# Ops is deployed from this folder with the CLI. The board projects beside it
+# are their own Vercel projects and hold their own .env.local — never upload them.
+.env*
+mitra-build-board/
+sentinel-build-board/
+plan-boards/
+.agents/
+.claude/
+image.png

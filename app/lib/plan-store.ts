@@ -1,6 +1,7 @@
-// The MITRA build board's shared store: Upstash Redis, over its REST API.
+// The build boards' shared store: Upstash Redis, over its REST API. One
+// database, one key prefix per board (app/lib/plan-boards.ts).
 //
-// The board is a plan, not work. Its tasks are a breakdown somebody wrote
+// A board is a plan, not work. Its tasks are a breakdown somebody wrote
 // before any of it was started — what to do, what it depends on, which
 // decision gates it — and a plan is edited by hand, by several people at once.
 // That is a different thing from a task on the Ops board, which is a GitHub
@@ -10,30 +11,39 @@
 //   No `issue`   A planning row. Status is typed, because nothing has
 //                happened that could prove it.
 //   `issue` set  Started in Ops. The row points at owner/name#n, and its status
-//                is derived from GitHub like every other task here. The store
-//                refuses a typed status for it, and nobody can type the link —
-//                only POST /api/mitra/start writes it, after the issue exists.
+//                and assignee are derived from GitHub like every other task
+//                here. The store refuses a typed status or assignee for it, and
+//                nobody can type the link — only app/lib/plan-start.ts writes
+//                it, after the issue exists.
 //
-// Why Redis and not the Postgres behind lib/db.ts: the board was already live
-// on this store, with the team's edits in it, before it moved into Ops. Moving
-// it would have meant a migration of data people are actively changing, for no
-// gain in what the board can do. No npm dependency — this is fetch.
+// Why Redis and not the Postgres behind lib/db.ts: the MITRA board was already
+// live on this store, with the team's edits in it, before it moved into Ops.
+// Moving it would have meant a migration of data people are actively changing,
+// for no gain in what the board can do; later boards share it so there is one
+// store, not two. No npm dependency — this is fetch.
 //
-// Layout:
-//   mitra:rev          integer, bumped on every write (clients poll it)
-//   mitra:seeded       set once when the board is first loaded from the page
-//   mitra:tids         sorted set: task id -> display order
-//   mitra:t:<id>       hash: task fields
-//   mitra:dids         sorted set: decision id -> display order
-//   mitra:d:<id>       hash: decision fields
+// Layout, for <b> the board's key (mitra, sentinel):
+//   <b>:rev            integer, bumped on every write (clients poll it)
+//   <b>:seeded         set once when the board is first loaded from the page
+//   <b>:tids           sorted set: task id -> display order
+//   <b>:t:<id>         hash: task fields
+//   <b>:dids           sorted set: decision id -> display order
+//   <b>:d:<id>         hash: decision fields
+//
+// The standalone copies of the boards (mitra-build-board.vercel.app,
+// sentinel-build-board.vercel.app) read and write the same keys.
 //
 // Each edit writes only the fields that changed, so two people editing
 // different fields of one task never overwrite each other.
 
-const P = "mitra:";
-const REV = P + "rev";
-const KINDS = { t: P + "tids", d: P + "dids" } as const;
-type Kind = keyof typeof KINDS;
+type Kind = "t" | "d";
+
+// The board key is checked against PLAN_BOARDS by every route before it gets
+// here, so it is never caller-chosen text in a Redis key.
+function keys(board: string) {
+  const P = board + ":";
+  return { P, REV: P + "rev", KINDS: { t: P + "tids", d: P + "dids" } as Record<Kind, string> };
+}
 
 export const ID_RE = /^[A-Za-z0-9_$-]{1,24}$/;
 const FIELD_RE = /^[a-z]{1,16}$/;
@@ -47,7 +57,7 @@ const CLAIM_STALE_MS = 2 * 60 * 1000;
 
 // Returns 0 when patching an item that no longer exists, -1 when creating an id
 // that is already taken, otherwise the new revision. Drops `issue` always, and
-// `status` once the task is linked: that status comes from GitHub now.
+// `status` and `assignee` once the task is linked: both come from GitHub now.
 const PATCH_LUA = `
 local exists = redis.call('ZSCORE', KEYS[1], ARGV[1])
 if ARGV[2] == '1' then
@@ -61,7 +71,7 @@ linked = linked and linked ~= ''
 local out = {}
 for i = 4, #ARGV, 2 do
   local k = ARGV[i]
-  if k ~= 'issue' and not (k == 'status' and linked) then
+  if k ~= 'issue' and not ((k == 'status' or k == 'assignee') and linked) then
     out[#out + 1] = k
     out[#out + 1] = ARGV[i + 1]
   end
@@ -105,7 +115,7 @@ function config() {
   const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) {
     throw new Error(
-      "KV_REST_API_URL and KV_REST_API_TOKEN are not set, so the MITRA board's store cannot be reached. Connect the mitra-board-kv Upstash database to this Vercel project (Storage tab), or copy both values from the mitra-build-board project."
+      "KV_REST_API_URL and KV_REST_API_TOKEN are not set, so the build boards' store cannot be reached. Connect the mitra-board-kv Upstash database to this Vercel project (Storage tab), or copy both values from the mitra-build-board project."
     );
   }
   return { url, token };
@@ -123,17 +133,17 @@ async function pipeline(cmds: (string | number)[][]): Promise<any[]> {
       signal: AbortSignal.timeout(10_000),
     });
   } catch (e: any) {
-    throw new Error(`The MITRA board's store (Upstash) did not answer: ${e?.message ?? e}. Check the database in the Vercel Storage tab.`);
+    throw new Error(`The build boards' store (Upstash) did not answer: ${e?.message ?? e}. Check the database in the Vercel Storage tab.`);
   }
   if (!r.ok) {
     throw new Error(
-      `The MITRA board's store answered ${r.status}.` +
+      `The build boards' store answered ${r.status}.` +
         (r.status === 401 ? " KV_REST_API_TOKEN is wrong or was rotated." : " Check the Upstash database in the Vercel Storage tab.")
     );
   }
   const out = await r.json();
   return out.map((x: any) => {
-    if (x.error) throw new Error(`The MITRA board's store refused a command: ${x.error}`);
+    if (x.error) throw new Error(`The build boards' store refused a command: ${x.error}`);
     return x.result;
   });
 }
@@ -144,7 +154,8 @@ const toObj = (flat: string[]) => {
   return o;
 };
 
-async function readKind(kind: Kind) {
+async function readKind(board: string, kind: Kind) {
+  const { P, KINDS } = keys(board);
   const [ids] = await pipeline([["ZRANGE", KINDS[kind], 0, -1]]);
   if (!ids.length) return [];
   const rows = await pipeline(ids.map((id: string) => ["HGETALL", P + kind + ":" + id]));
@@ -160,24 +171,27 @@ function cleanFields(fields: unknown): string[] {
   return flat;
 }
 
-export async function revision(): Promise<{ rev: number; seeded: boolean }> {
+export async function revision(board: string): Promise<{ rev: number; seeded: boolean }> {
+  const { P, REV } = keys(board);
   const [rev, seeded] = await pipeline([["GET", REV], ["GET", P + "seeded"]]);
   return { rev: Number(rev || 0), seeded: !!seeded };
 }
 
-export async function readBoard() {
-  const { rev, seeded } = await revision();
-  const [tasks, decisions] = await Promise.all([readKind("t"), readKind("d")]);
+export async function readBoard(board: string) {
+  const { rev, seeded } = await revision(board);
+  const [tasks, decisions] = await Promise.all([readKind(board, "t"), readKind(board, "d")]);
   return { rev, seeded, tasks, decisions };
 }
 
-export async function readTask(id: string): Promise<Record<string, string> | null> {
+export async function readTask(board: string, id: string): Promise<Record<string, string> | null> {
+  const { P, KINDS } = keys(board);
   const [inSet, flat] = await pipeline([["ZSCORE", KINDS.t, id], ["HGETALL", P + "t:" + id]]);
   return inSet == null ? null : Object.assign(toObj(flat || []), { id });
 }
 
 /** Runs once, ever: the first page load fills an empty store from its own data. */
-export async function seed(body: any) {
+export async function seed(board: string, body: any) {
+  const { P, REV, KINDS } = keys(board);
   const [ok] = await pipeline([["SET", P + "seeded", "1", "NX"]]);
   if (ok !== "OK") return;
   const cmds: (string | number)[][] = [];
@@ -196,11 +210,12 @@ export async function seed(body: any) {
 
 export type OpResult = { ok: true } | { ok: false; error: "bad_op" | "id_taken" | "gone" | "linked" };
 
-export async function applyOps(ops: any[]): Promise<OpResult[]> {
+export async function applyOps(board: string, ops: any[]): Promise<OpResult[]> {
+  const { P, REV, KINDS } = keys(board);
   const results: OpResult[] = [];
   for (const op of ops.slice(0, 200)) {
     const kind = op?.kind as Kind;
-    const zkey = KINDS[kind];
+    const zkey = Object.hasOwn(KINDS, kind) ? KINDS[kind] : undefined;
     if (!zkey || !ID_RE.test(op.id)) { results.push({ ok: false, error: "bad_op" }); continue; }
     const hkey = P + kind + ":" + op.id;
     if (op.op === "del") {
@@ -222,7 +237,8 @@ export async function applyOps(ops: any[]): Promise<OpResult[]> {
  * Reserve a task for starting, so two people pressing Start at once open one
  * issue rather than two. Returns the claim token, or why there is none.
  */
-export async function claimTask(id: string): Promise<{ token: string } | { gone: true } | { existing: string }> {
+export async function claimTask(board: string, id: string): Promise<{ token: string } | { gone: true } | { existing: string }> {
+  const { P, REV, KINDS } = keys(board);
   const now = String(Date.now());
   const [r] = await pipeline([["EVAL", CLAIM_LUA, 3, P + "t:" + id, KINDS.t, REV, id, now, CLAIM_STALE_MS]]);
   if (r === "ok") return { token: "pending:" + now };
@@ -231,7 +247,8 @@ export async function claimTask(id: string): Promise<{ token: string } | { gone:
 }
 
 /** Swap the claim for the issue it produced, or release it with `ref` empty. */
-export async function settleClaim(id: string, token: string, ref: string): Promise<boolean> {
+export async function settleClaim(board: string, id: string, token: string, ref: string): Promise<boolean> {
+  const { P, REV } = keys(board);
   const [r] = await pipeline([["EVAL", SETTLE_LUA, 2, P + "t:" + id, REV, token, ref]]);
   return r !== 0;
 }

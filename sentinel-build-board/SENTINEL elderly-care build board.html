@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>SENTINEL elderly-care build board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style id="app-css">
+:root{
+  --paper:#F6F8F7; --panel:#FFFFFF; --wash:#ECF1EF; --ink:#1E2A2C; --muted:#56656A; --line:#DCE4E2; --line2:#C3D0CD;
+  --gold:#2C7A7B; --gold-ink:#1D5A5C; --gold-wash:#DDEFEE;
+  --s-todo:#7C766A; --s-prog:#2E6683; --s-rev:#62539A; --s-block:#A3432A; --s-done:#3D7547; --s-def:#9A948A; --s-exist:#8A6D2B; --p0:#A3432A; --p1:#2E6683; --p2:#7C766A;
+  --display:"Fraunces",Georgia,"Times New Roman",serif;
+  --sans:"DM Sans","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r:10px;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:400 15.5px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold-ink);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding:0 20px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:rgba(246,248,247,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.topbar{display:flex;align-items:center;gap:16px;padding:14px 0 10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand h1{font:600 26px/1.1 var(--display);margin:0;letter-spacing:.2px}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.spacer{flex:1}
+.btn{border:1px solid var(--line2);background:var(--panel);border-radius:8px;padding:8px 14px;font-weight:500;font-size:14px;display:inline-flex;align-items:center;gap:8px;min-height:38px}
+.btn:hover{border-color:var(--gold)}
+.btn.primary{background:var(--gold-ink);border-color:var(--gold-ink);color:#fff}
+.btn.primary:hover{background:#174A4C}
+.btn.primary[disabled]{background:var(--wash);border-color:var(--line);color:var(--muted);cursor:default}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.danger{color:var(--s-block);border-color:#E7C9BE}
+.savestate{font-size:13px;color:var(--muted)}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{border:0;background:none;padding:10px 14px 11px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--gold)}
+.notice{margin:14px 0 0;padding:10px 14px;border:1px solid var(--line2);background:var(--gold-wash);border-radius:8px;font-size:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+main{padding:22px 0 60px}
+h2.sec{font:600 30px/1.15 var(--display);margin:0 0 4px}
+.lede{color:var(--muted);margin:0 0 20px;max-width:70ch}
+/* overview */
+.ov-grid{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:24px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.pad{padding:18px 20px}
+.ring-box{text-align:center}
+.ring-box .big{font:600 44px/1 var(--display)}
+.ring-box .lbl{color:var(--muted);font-size:13px}
+.statrow{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:16px;text-align:left}
+.stat{padding:8px 10px;border-radius:8px;background:var(--wash);font-size:13px;color:var(--muted);border:0;text-align:left}
+.stat b{display:block;font:600 22px/1.1 var(--sans);color:var(--ink)}
+.stat:hover{outline:1px solid var(--line2)}
+.epic-row{display:grid;grid-template-columns:minmax(150px,230px) 1fr 64px;gap:14px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer;background:none;border-left:0;border-right:0;border-top:0;width:100%;text-align:left}
+.epic-row:last-child{border-bottom:0}
+.epic-row:hover .epic-name{color:var(--gold-ink)}
+.epic-name{font-weight:500;font-size:14px}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--wash)}
+.bar span{display:block;height:100%}
+.epic-count{font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:4px 0 8px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
+.mini-list{list-style:none;margin:0;padding:0}
+.mini-list li{border-top:1px solid var(--line)}
+.mini-list li:first-child{border-top:0}
+.mini-list button{width:100%;text-align:left;background:none;border:0;padding:9px 0;display:flex;gap:10px;align-items:baseline}
+.mini-list button:hover .t{color:var(--gold-ink)}
+.mono-id{font-variant-numeric:tabular-nums;font-weight:600;font-size:12.5px;color:var(--gold-ink);min-width:44px}
+.h3{font:600 21px/1.2 var(--display);margin:0 0 10px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+/* filters */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.filters input[type=search]{flex:1 1 220px;min-width:180px}
+.field{border:1px solid var(--line2);border-radius:8px;background:var(--panel);padding:8px 10px;min-height:38px;font-size:14px}
+select.field{padding-right:28px}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:14px;padding:0 6px}
+.count-note{font-size:13px;color:var(--muted);margin-left:auto}
+/* board */
+.board{display:grid;grid-template-columns:repeat(6,minmax(220px,1fr));gap:14px;overflow-x:auto;padding-bottom:8px}
+.col{background:var(--wash);border-radius:var(--r);padding:10px;min-height:200px;display:flex;flex-direction:column}
+.col.over{outline:2px dashed var(--gold)}
+.col h4{margin:2px 4px 10px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.col h4 .n{color:var(--muted);font-weight:500}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.tcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 11px;margin-bottom:8px;cursor:grab;text-align:left;width:100%;display:block}
+.tcard:hover{border-color:var(--line2)}
+.tcard.dragging{opacity:.4}
+.tcard .row1{display:flex;gap:8px;align-items:center;margin-bottom:4px}
+.tcard .ttl{font-size:14px;font-weight:500;line-height:1.35}
+.tcard .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tag{font-size:11.5px;padding:2px 7px;border-radius:999px;background:var(--wash);color:var(--muted);white-space:nowrap}
+.tag.size{background:var(--gold-wash);color:var(--gold-ink);font-weight:600}
+.tag.gate{background:#F6E6DF;color:var(--s-block);font-weight:600}
+.tag.who{background:#E8F0F3;color:var(--s-prog)}
+.tag.wait{background:#EEE;color:#6a655c}
+.col .more{font-size:13px;color:var(--muted);text-align:center;padding:6px}
+/* list */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
+table.list{border-collapse:collapse;width:100%;min-width:900px;font-size:14px}
+table.list th{text-align:left;font-weight:600;font-size:12.5px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);background:var(--wash);position:sticky;top:0;cursor:pointer;user-select:none;white-space:nowrap}
+table.list td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.list tr:last-child td{border-bottom:0}
+table.list tr:hover td{background:#F8FBFA}
+td.tcell button{background:none;border:0;padding:0;text-align:left;font-weight:500}
+td.tcell button:hover{color:var(--gold-ink);text-decoration:underline}
+table.list .field{min-height:32px;padding:4px 8px;font-size:13.5px}
+.epic-chip{font-size:12.5px;color:var(--muted)}
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(42,38,32,.28);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(620px,100%);background:var(--panel);z-index:41;display:flex;flex-direction:column;box-shadow:-12px 0 40px rgba(42,38,32,.12);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);animation:slide .18s ease-out}
+@keyframes slide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.drawer{animation:none}}
+.dr-head{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.dr-body{overflow-y:auto;padding:18px 20px 30px;flex:1}
+.dr-title{width:100%;font:600 24px/1.2 var(--display);border:1px solid transparent;border-radius:6px;padding:4px 6px;margin:0 -6px 12px;background:none}
+.dr-title:hover,.dr-title:focus{border-color:var(--line2)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin-bottom:16px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);font-weight:500}
+label.f.full{grid-column:1/-1}
+label.f textarea{min-height:70px;resize:vertical;line-height:1.45;font-size:14px;color:var(--ink)}
+label.f .field{color:var(--ink)}
+.deps{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.dep{border:1px solid var(--line2);background:var(--panel);border-radius:999px;padding:3px 10px 3px 8px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.dep:hover{border-color:var(--gold)}
+.dr-foot{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+/* decisions */
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.dcard{padding:16px 18px;border-left:4px solid var(--line2)}
+.dcard[data-st=DECIDED]{border-left-color:var(--s-done)}
+.dcard[data-st=OPEN]{border-left-color:var(--s-block)}
+.dcard[data-st=ACTION]{border-left-color:var(--gold)}
+.dcard .top{display:flex;gap:10px;align-items:center;margin-bottom:6px}
+.dcard h4{margin:0 0 8px;font-size:15.5px;font-weight:600;line-height:1.35}
+.dcard dl{margin:0 0 10px;font-size:13.5px}
+.dcard dt{font-weight:600;color:var(--muted);font-size:12px;margin-top:8px}
+.dcard dd{margin:2px 0 0}
+.dcard textarea{width:100%;min-height:64px;resize:vertical}
+.pill{border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;border:1px solid}
+/* tests */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.tst{padding:16px 18px}
+.tst h4{font:600 22px/1.15 var(--display);margin:0 0 6px}
+.tst .does{margin:0 0 10px}
+.tst .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tst details{border-top:1px solid var(--line);padding-top:8px;margin-top:6px}
+.tst summary{cursor:pointer;font-weight:500;font-size:14px;color:var(--gold-ink)}
+.tst p{margin:6px 0;font-size:14px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;z-index:60}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+@media (max-width:860px){
+  .ov-grid,.two{grid-template-columns:1fr}
+  .fgrid{grid-template-columns:1fr}
+  .epic-row{grid-template-columns:1fr 54px}
+  .epic-row .bar{grid-column:1/-1;order:3}
+  .brand h1{font-size:22px}
+}
+
+.tag.p0{background:#F6E6DF;color:var(--p0);font-weight:700}
+.tag.p1{background:#E4EEF3;color:var(--p1);font-weight:700}
+.tag.p2{background:#EEEDEA;color:var(--p2);font-weight:700}
+.tag.due{background:var(--wash);color:var(--muted)}
+.tag.late{background:#F6E6DF;color:var(--s-block);font-weight:600}
+.tag.ev{background:#F7F0DE;color:#7A5E1E}
+.rules{display:grid;grid-template-columns:minmax(120px,170px) 1fr;gap:0;font-size:14px}
+.rules div{padding:9px 0;border-top:1px solid var(--line)}
+.rules div:nth-child(-n+2){border-top:0}
+.rules .k{font-weight:600;padding-right:14px}
+.rules .n{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.mcard{padding:16px 18px;border-left:4px solid var(--line2)}
+.mcard[data-live="Blocked"]{border-left-color:var(--s-block)}
+.mcard[data-live="Not validated"]{border-left-color:var(--s-rev)}
+.mcard[data-live="Validated"]{border-left-color:var(--s-done)}
+.mcard h4{font:600 22px/1.15 var(--display);margin:0 0 8px}
+.mcard .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.mcard label.f{margin-top:8px}
+.mcard textarea{width:100%;min-height:56px;resize:vertical}
+.warnbox{margin:0 0 18px;padding:12px 16px;border:1px solid #E7C9BE;background:#FBF0EB;border-radius:8px;font-size:14px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="application/json" id="board-data">{"version": "v0.1", "savedAt": "2026-10-11T12:00:00Z", "tasks": [{"id": "SEN-001", "epic": "00 Audit & requirements", "title": "Review current dashboard and feature inventory", "what": "Capture all pages, controls, working/broken features; share screenshots with stakeholders", "deliv": "Screen inventory, screenshots, issue list", "done": "Every page and action tested with evidence", "deps": "—", "size": "S", "skills": "Frontend / QA", "gate": "D-01", "assignee": "", "status": "In progress", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-002", "epic": "00 Audit & requirements", "title": "Confirm dashboard expectations with Vivek", "what": "Review screenshots, required KPIs, layout, alert flow and demo acceptance", "deliv": "Signed-off requirements and priority list", "done": "Vivek confirms MVP screens and metrics", "deps": "SEN-001", "size": "S", "skills": "PM / UX", "gate": "D-01", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-003", "epic": "00 Audit & requirements", "title": "Get Simrah UI/UX review", "what": "Gather feedback on navigation, colors, typography, accessibility and alert prominence", "deliv": "UI/UX review and mockups", "done": "Priority UI feedback accepted", "deps": "SEN-001", "size": "S", "skills": "UI/UX", "gate": "D-01", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-004", "epic": "01 Dashboard", "title": "Improve Overview page", "what": "Polish cards, source health, camera status, model status, key safety KPIs", "deliv": "Responsive Overview page", "done": "Backend-connected status accurate; no fake RUNNING", "deps": "SEN-002", "size": "M", "skills": "Frontend", "gate": "—", "assignee": "", "status": "In progress", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-005", "epic": "01 Dashboard", "title": "Connect existing pages to backend", "what": "Wire Alerts, Residents, Analytics, Timeline, Heatmap, Export to API", "deliv": "Functional dashboard navigation", "done": "All displayed records traceable to API/database", "deps": "SEN-001", "size": "M", "skills": "Frontend / Backend", "gate": "—", "assignee": "", "status": "In progress", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-006", "epic": "01 Dashboard", "title": "Resident profiles and caretaker directory", "what": "Store resident ID, room, photo, linked caretaker and authorized contact", "deliv": "Resident and caretaker pages", "done": "CRUD, access rules, linkage tested", "deps": "SEN-005", "size": "M", "skills": "Full stack", "gate": "D-02", "assignee": "", "status": "In progress", "priority": "P1", "due": "", "evidence": "Current backend has resident fields; resident-specific alert routing not yet verified", "notes": ""}, {"id": "SEN-007", "epic": "01 Dashboard", "title": "Real-time dashboard updates", "what": "WebSocket/SSE or short polling after new persisted events", "deliv": "Live alerts, counts and timeline", "done": "New accepted event appears without manual refresh", "deps": "SEN-005", "size": "M", "skills": "Full stack", "gate": "—", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-008", "epic": "01 Dashboard", "title": "Dashboard export and reporting", "what": "Export filtered alerts, activity timeline and heatmap", "deliv": "CSV/PDF exports", "done": "Exports match filtered DB results", "deps": "SEN-005", "size": "M", "skills": "Full stack", "gate": "—", "assignee": "", "status": "To do", "priority": "P2", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-009", "epic": "02 CCTV pipeline", "title": "Validate existing video orchestrator", "what": "Inspect frame read, YOLO11 pose, tracking, event bus, output files", "deliv": "Pipeline flow diagram and smoke-test log", "done": "Test video processed end-to-end", "deps": "—", "size": "S", "skills": "CV / Backend", "gate": "—", "assignee": "", "status": "Existing", "priority": "P0", "due": "", "evidence": "edge/pipeline/orchestrator.py reads video and calls PoseByteTracker", "notes": ""}, {"id": "SEN-010", "epic": "02 CCTV pipeline", "title": "RTSP CCTV source configuration", "what": "Explicit camera URL, credentials, reconnect, source type and health", "deliv": "RTSP camera connector", "done": "Actual CCTV frames received and health tracked", "deps": "SEN-009", "size": "M", "skills": "CV / DevOps", "gate": "D-03", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-011", "epic": "02 CCTV pipeline", "title": "Runtime heartbeat and model status", "what": "Send heartbeats only while real frames processed; stop when source ends", "deliv": "Runtime API integration", "done": "READY/RUNNING/MISSING reflect reality", "deps": "SEN-009", "size": "M", "skills": "Backend / CV", "gate": "—", "assignee": "", "status": "In progress", "priority": "P0", "due": "", "evidence": "Backend status endpoints exist; runner heartbeat integration unverified", "notes": ""}, {"id": "SEN-012", "epic": "02 CCTV pipeline", "title": "Persist real detector events", "what": "Map detector outputs to backend POST /events with camera/track/time", "deliv": "Event bridge", "done": "Real test-video event accepted, stored, visible on dashboard", "deps": "SEN-009, SEN-011", "size": "M", "skills": "Backend / CV", "gate": "—", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-013", "epic": "02 CCTV pipeline", "title": "Multi-camera configuration", "what": "Camera registry, room labels, stream lifecycle and isolation", "deliv": "Camera settings and health page", "done": "Two sources tested independently", "deps": "SEN-010", "size": "M", "skills": "Backend / DevOps", "gate": "D-03", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-014", "epic": "03 Tracking & zones", "title": "Per-person track continuity", "what": "Keep stable per-camera track IDs and manage lost tracks", "deliv": "Track logs and ID lifecycle", "done": "Test clips show consistent IDs; swaps quantified", "deps": "SEN-009", "size": "M", "skills": "CV", "gate": "—", "assignee": "", "status": "In progress", "priority": "P1", "due": "", "evidence": "PoseByteTracker exists; real-world accuracy not validated", "notes": ""}, {"id": "SEN-015", "epic": "03 Tracking & zones", "title": "Resident identity association", "what": "Associate track with resident only when verified; anonymous otherwise", "deliv": "Resident-track association records", "done": "Unknown tracks not assigned a resident", "deps": "SEN-014, SEN-006", "size": "M", "skills": "CV / Backend", "gate": "D-02", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-016", "epic": "03 Tracking & zones", "title": "Camera/zone room mapping", "what": "Camera fixed location + configurable polygons for hall, dining, room", "deliv": "Zone editor/config and mapping", "done": "Ground-contact points correctly assigned to zones", "deps": "SEN-013", "size": "M", "skills": "CV / Frontend", "gate": "D-03", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-017", "epic": "03 Tracking & zones", "title": "Per-resident location on dashboard", "what": "Display latest verified room/zone, timestamp, last seen", "deliv": "Resident location widget", "done": "Location updates from real tracked observations", "deps": "SEN-015, SEN-016", "size": "M", "skills": "Full stack", "gate": "—", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-018", "epic": "04 Activity & duration", "title": "Activity classification integration", "what": "Use existing rule-based/activity modules where validated; label uncertainty", "deliv": "Activity stream per track", "done": "Walking/sitting/standing tested against labeled clips", "deps": "SEN-014", "size": "M", "skills": "CV", "gate": "—", "assignee": "", "status": "In progress", "priority": "P1", "due": "", "evidence": "Existing synthetic activity sessions; not proof of live accuracy", "notes": ""}, {"id": "SEN-019", "epic": "04 Activity & duration", "title": "Duration and dwell time calculation", "what": "Track start/end, interruptions, per-zone dwell and activity duration", "deliv": "Activity sessions table and APIs", "done": "Durations match timestamps on test recordings", "deps": "SEN-018, SEN-016", "size": "M", "skills": "Backend / Analytics", "gate": "—", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-020", "epic": "04 Activity & duration", "title": "Resident timeline and history", "what": "Activity and alert history by resident, camera, date", "deliv": "Filterable timeline", "done": "Entries backed by stored sessions and events", "deps": "SEN-019", "size": "M", "skills": "Full stack", "gate": "—", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-021", "epic": "04 Activity & duration", "title": "Movement heatmap", "what": "Aggregate track foot positions by dwell time per camera", "deliv": "Per-camera heatmap", "done": "Matches manually checked trajectories", "deps": "SEN-016, SEN-019", "size": "M", "skills": "CV / Analytics", "gate": "—", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-022", "epic": "04 Activity & duration", "title": "Facility-wide heatmap calibration", "what": "Map each camera to common floor plan; handle overlap", "deliv": "Facility heatmap with calibration metadata", "done": "Cross-camera points align to measured map", "deps": "SEN-021", "size": "M", "skills": "CV / Analytics", "gate": "D-03", "assignee": "", "status": "To do", "priority": "P2", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-023", "epic": "05 Model integration", "title": "Fall TCN inference adapter", "what": "Recover exact architecture and normalization; 16×17×5 inputs", "deliv": "Validated fall model loader", "done": "Outputs match original reference inference", "deps": "SEN-009", "size": "M", "skills": "ML", "gate": "D-04", "assignee": "", "status": "Blocked", "priority": "P0", "due": "", "evidence": "Weights and input dimensions known; exact forward/preprocessing not recovered", "notes": ""}, {"id": "SEN-024", "epic": "05 Model integration", "title": "Choking-like distress inference", "what": "Recover 18-keypoint preprocessing; temporal window and mapping", "deliv": "Validated choking adapter", "done": "Reference tests pass; real-world false alarms measured", "deps": "SEN-009", "size": "M", "skills": "ML", "gate": "D-04", "assignee": "", "status": "Blocked", "priority": "P1", "due": "", "evidence": "Synthetic training; YOLO17 must not be silently mapped to 18", "notes": ""}, {"id": "SEN-025", "epic": "05 Model integration", "title": "Chest distress inference", "what": "Recover feature preprocessing, class mapping, thresholds", "deliv": "Validated chest adapter", "done": "Reference test agreement and false-alert review", "deps": "SEN-009", "size": "M", "skills": "ML", "gate": "D-04", "assignee": "", "status": "Blocked", "priority": "P1", "due": "", "evidence": "72-channel checkpoint alone insufficient", "notes": ""}, {"id": "SEN-026", "epic": "05 Model integration", "title": "Seizure-like activity inference", "what": "Recover feature preprocessing, class mapping, thresholds", "deliv": "Validated seizure adapter", "done": "Reference test agreement and false-alert review", "deps": "SEN-009", "size": "M", "skills": "ML", "gate": "D-04", "assignee": "", "status": "Blocked", "priority": "P1", "due": "", "evidence": "Suspected event only, not diagnosis", "notes": ""}, {"id": "SEN-027", "epic": "05 Model integration", "title": "Gait ExtraTrees integration", "what": "Recover exact 1048-feature extractor; match sklearn version 1.6.1", "deliv": "Validated gait adapter", "done": "Reference predictions match training environment", "deps": "SEN-009", "size": "M", "skills": "ML", "gate": "D-04", "assignee": "", "status": "Blocked", "priority": "P2", "due": "", "evidence": "Current environment version mismatch; no feature names saved", "notes": ""}, {"id": "SEN-028", "epic": "05 Model integration", "title": "Sit-to-stand model integration", "what": "Recover 164-feature sequence construction; 100 frames", "deliv": "Validated STS adapter", "done": "Reference test agreement and acceptable performance", "deps": "SEN-009", "size": "M", "skills": "ML", "gate": "D-04", "assignee": "", "status": "Blocked", "priority": "P2", "due": "", "evidence": "Current validation F1 ~0.596; needs improvement", "notes": ""}, {"id": "SEN-029", "epic": "05 Model integration", "title": "Benchmark model accuracy and efficiency", "what": "Measure recall, precision, false alerts, latency and FPS on actual cameras", "deliv": "Validation report", "done": "Metrics documented on representative elderly-care recordings", "deps": "SEN-023, SEN-024, SEN-025, SEN-026", "size": "M", "skills": "ML / QA", "gate": "D-04", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-030", "epic": "06 Alerts", "title": "Event rules and duplicate suppression", "what": "Severity policy, temporal persistence, cooldown and deduplication", "deliv": "Alert rules engine", "done": "One physical event does not cause alert storm", "deps": "SEN-012", "size": "M", "skills": "Backend / ML", "gate": "D-05", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-031", "epic": "06 Alerts", "title": "Resident-specific caretaker routing", "what": "Add resident_id to event contract and route to linked authorized caretaker", "deliv": "Caretaker alert routing", "done": "Correct caretaker selected; anonymous event not misrouted", "deps": "SEN-015, SEN-030", "size": "M", "skills": "Backend", "gate": "D-02", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "Current fallback to first resident is not safe", "notes": ""}, {"id": "SEN-032", "epic": "06 Alerts", "title": "Alert acknowledgement and escalation", "what": "Acknowledge, call, escalation status, timestamps and audit", "deliv": "Alert workflow", "done": "Action recorded; unacknowledged escalation tested", "deps": "SEN-031", "size": "M", "skills": "Full stack", "gate": "D-05", "assignee": "", "status": "In progress", "priority": "P1", "due": "", "evidence": "Dialer/copy actions are not automated SMS or push", "notes": ""}, {"id": "SEN-033", "epic": "07 Caretaker app", "title": "Caretaker portal MVP", "what": "Mobile-responsive separate authenticated caretaker view", "deliv": "Caretaker web app", "done": "Caretaker sees only linked resident records", "deps": "SEN-031, SEN-020", "size": "M", "skills": "Frontend / Backend", "gate": "D-02", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-034", "epic": "07 Caretaker app", "title": "Caretaker notifications", "what": "Implement authorized push/SMS/WhatsApp provider after approval", "deliv": "Notification delivery and receipts", "done": "Test delivery, retries, opt-out, audit", "deps": "SEN-033", "size": "M", "skills": "Mobile / Backend", "gate": "D-05", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-035", "epic": "07 Caretaker app", "title": "Caretaker activity and alerts view", "what": "Resident activity duration, last seen, safety alerts, timeline", "deliv": "Caretaker home and detail pages", "done": "Real filtered API data and permissions verified", "deps": "SEN-033, SEN-019", "size": "M", "skills": "Full stack", "gate": "—", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-036", "epic": "08 Remote & retention", "title": "AnyDesk remote access verification", "what": "Install/authorize target machine; test connectivity and security", "deliv": "Remote access checklist", "done": "Connection works with approved access", "deps": "—", "size": "S", "skills": "IT / DevOps", "gate": "D-06", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-037", "epic": "08 Remote & retention", "title": "15-day data access and storage", "what": "Define online event/media retention, backup and access; evaluate TeraBox suitability", "deliv": "Retention architecture and test", "done": "15 days accessible with access controls and deletion policy", "deps": "SEN-012", "size": "M", "skills": "DevOps / Security", "gate": "D-06", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "TeraBox not assumed to be live database or privacy-compliant", "notes": ""}, {"id": "SEN-038", "epic": "08 Remote & retention", "title": "Authentication and audit", "what": "Role-based access, secure secrets, audit logs, consent handling", "deliv": "Security checklist", "done": "Unauthorized resident access blocked", "deps": "SEN-006, SEN-033", "size": "M", "skills": "Security / Backend", "gate": "D-02", "assignee": "", "status": "To do", "priority": "P1", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-039", "epic": "09 Validation & handover", "title": "Live test-video demo rehearsal", "what": "End-to-end test with existing videos, screenshot/video proof", "deliv": "Demo recording and checklist", "done": "Source, model status and events shown honestly", "deps": "SEN-007, SEN-012", "size": "S", "skills": "QA / Full stack", "gate": "—", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-040", "epic": "09 Validation & handover", "title": "On-site CCTV commissioning", "what": "Network, RTSP, camera mapping, access, zones, performance", "deliv": "Commissioning report", "done": "Camera frames and live events validated on-site", "deps": "SEN-010, SEN-016", "size": "M", "skills": "CV / IT", "gate": "D-03", "assignee": "", "status": "To do", "priority": "P0", "due": "", "evidence": "", "notes": ""}, {"id": "SEN-041", "epic": "09 Validation & handover", "title": "Operational documentation and acceptance", "what": "Setup guide, incident response, test results, limitations", "deliv": "README, runbook and sign-off", "done": "Stakeholders sign off on verified scope", "deps": "SEN-039, SEN-040", "size": "M", "skills": "PM / QA", "gate": "D-01", "assignee": "", "status": "To do", "priority": "P2", "due": "", "evidence": "", "notes": ""}], "decisions": [{"id": "D-01", "title": "Dashboard MVP and UI sign-off", "why": "Prevents unplanned UI rework", "rec": "Review current screenshots with Vivek and Simrah", "owner": "", "decision": "", "status": "OPEN", "date": ""}, {"id": "D-02", "title": "Resident identity, permissions and caretaker app scope", "why": "Prevents wrong-person alerts and privacy leaks", "rec": "Start with authenticated caretaker web portal; require verified resident association", "owner": "", "decision": "", "status": "OPEN", "date": ""}, {"id": "D-03", "title": "CCTV hardware, RTSP access and facility floor plan", "why": "Blocks real camera setup and calibrated heatmap", "rec": "Collect camera IP/credentials securely, zone maps and sample footage", "owner": "", "decision": "", "status": "OPEN", "date": ""}, {"id": "D-04", "title": "Model training code, preprocessing and acceptance thresholds", "why": "Blocks safe deployment of trained weights", "rec": "Recover original model code and validate each against reference inputs", "owner": "", "decision": "", "status": "OPEN", "date": ""}, {"id": "D-05", "title": "Alert escalation channels and medical wording", "why": "Controls false alarms and notification claims", "rec": "Use suspected distress wording; approve escalation and delivery provider", "owner": "", "decision": "", "status": "OPEN", "date": ""}, {"id": "D-06", "title": "Remote access, retention and TeraBox security approval", "why": "Resident footage and remote systems are sensitive", "rec": "Authorize AnyDesk and choose compliant 15-day data storage policy", "owner": "", "decision": "", "status": "OPEN", "date": ""}], "models": [{"name": "Fall TCN", "weights": "Yes", "input": "16 frames × 17 keypoints × 5 features", "live": "Not validated", "blocker": "Original forward architecture and preprocessing unavailable", "next": "Recover original code and reference outputs", "task": "SEN-023"}, {"name": "Choking-like", "weights": "Yes", "input": "48 × 18 × 4", "live": "Blocked", "blocker": "YOLO pose outputs 17; exact 18-point mapping missing", "next": "Recover training pipeline and validate false positives", "task": "SEN-024"}, {"name": "Chest distress", "weights": "Yes", "input": "72 input channels; 48 × 18 × 4 expected", "live": "Blocked", "blocker": "Class order and exact preprocessing missing", "next": "Recover training contract", "task": "SEN-025"}, {"name": "Seizure-like", "weights": "Yes", "input": "72 input channels; 48 × 18 × 4 expected", "live": "Blocked", "blocker": "Class order and exact preprocessing missing", "next": "Recover training contract", "task": "SEN-026"}, {"name": "Gait", "weights": "Yes", "input": "1048 features", "live": "Blocked", "blocker": "Feature extractor missing; sklearn version mismatch", "next": "Recover extractor; match sklearn 1.6.1", "task": "SEN-027"}, {"name": "Sit-to-stand", "weights": "Yes", "input": "100 frames × 164 features", "live": "Blocked", "blocker": "Feature extractor missing; low validation F1", "next": "Recover extractor and retrain/validate", "task": "SEN-028"}], "readme": [["Purpose", "HR review and implementation planning", "Adapted to the format of MITRA backlog"], ["Status policy", "Existing / In progress / Blocked / To do / Needs verification", "Statuses are conservative; no unverified completion claims"], ["Priority", "P0 = live dashboard/CCTV demo; P1 = tracking and alerts; P2 = hardening"], ["Source of truth", "Existing code and earlier local test results reported in chat", "Revalidate on target machine"], ["Model caveat", "Trained weights ≠ validated live inference", "Missing preprocessors/architecture for several models"], ["Live demo", "Test-video live processing must be labeled TEST VIDEO", "Never fabricate alerts or live camera feeds"], ["Privacy", "Restrict camera, resident identity and caretaker access", "Confirm consent, retention, and access policies"], ["How to use", "Assign owner, evidence, due date, status; close only when Done when is satisfied"]]}</script>
+<script id="app-js">
+(function(){
+"use strict";
+const STATUSES=["To do","In progress","Needs verification","Blocked","Existing","Done"];
+const BOARD_COLS=STATUSES;
+const PRIOS=["P0","P1","P2"];
+const PLABEL={P0:"P0, live demo",P1:"P1, tracking & alerts",P2:"P2, hardening"};
+const LIVE=["Not validated","Blocked","Validated"];
+const SCOLOR={"To do":"var(--s-todo)","In progress":"var(--s-prog)","Needs verification":"var(--s-rev)","Blocked":"var(--s-block)","Existing":"var(--s-exist)","Done":"var(--s-done)"};
+const DSTAT={DECIDED:["Decided","var(--s-done)","#E6F0E1"],OPEN:["Open","var(--s-block)","#F6E6DF"],ACTION:["Action","var(--gold-ink)","#F3EBD6"]};
+const DRAFT_KEY="sentinel-board-draft";
+const raw=document.getElementById("board-data").textContent;
+let S=JSON.parse(raw);
+let dirty=false, canSave=null, writeMode="pending", artifactNS=null, downloadsNS=null;
+const ui={tab:"overview",q:"",epic:"",status:"",size:"",prio:"",skill:"",who:"",ready:false,open:null,sort:"id",dir:1};
+try{const u=JSON.parse(sessionStorage.getItem("sentinel-ui")||"null");if(u)Object.assign(ui,u,{open:null});}catch(e){}
+
+/* ---------- draft persistence ---------- */
+function loadDraft(){try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||"null")}catch(e){return null}}
+function saveDraft(extra){try{localStorage.setItem(DRAFT_KEY,JSON.stringify(Object.assign({base:S.savedAt,state:S},extra||{})))}catch(e){}}
+function clearDraft(){try{localStorage.removeItem(DRAFT_KEY)}catch(e){}}
+let staleDraft=null;
+(function(){
+  const d=loadDraft(); if(!d)return;
+  if(d.pending && d.pending===S.savedAt){clearDraft();return;}          // our save landed
+  if(d.base===S.savedAt){S=d.state;dirty=true;return;}                  // unsaved edits on this version
+  staleDraft=d;                                                          // edits made on an older version
+})();
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function epicName(e){return String(e||"").replace(/^\d+\s+/,"")}
+function byId(id){return S.tasks.find(t=>t.id===id)}
+function parseDeps(s){
+  const out=String(s||"").match(/[A-Z$]+-\d{2,3}/g)||[];
+  return [...new Set(out)].filter(byId);
+}
+const TODAY=new Date().toISOString().slice(0,10);
+function isLate(t){return !!t.due && t.due<TODAY && t.status!=="Done"}
+function prioTag(t){return t.priority?`<span class="tag ${esc(String(t.priority).toLowerCase())}">${esc(t.priority)}</span>`:""}
+function dueTag(t){return t.due?`<span class="tag ${isLate(t)?"late":"due"}">${isLate(t)?"Overdue ":"Due "}${esc(t.due)}</span>`:""}
+function decStatus(id){const d=S.decisions.find(x=>x.id===id);return d?d.status:null}
+function gateOpen(t){return /^D-\d+/.test(t.gate||"") && decStatus(t.gate)!=="DECIDED"}
+function depsDone(t){return parseDeps(t.deps).every(id=>byId(id).status==="Done")}
+function isReady(t){return t.status==="To do" && depsDone(t) && !gateOpen(t)}
+function epics(){const m=new Map();S.tasks.forEach(t=>{if(!m.has(t.epic))m.set(t.epic,[]);m.get(t.epic).push(t)});return [...m.entries()].sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}))}
+function skillsList(){return [...new Set(S.tasks.map(t=>t.skills).filter(Boolean))].sort()}
+function whoList(){return [...new Set(S.tasks.map(t=>t.assignee).filter(Boolean))].sort()}
+function toast(msg){const el=document.createElement("div");el.className="toast";el.setAttribute("role","status");el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2600)}
+function persistUI(){try{sessionStorage.setItem("sentinel-ui",JSON.stringify(ui))}catch(e){}}
+function changed(){dirty=true;saveDraft();renderTop();}
+
+function filtered(){
+  const q=ui.q.trim().toLowerCase();
+  return S.tasks.filter(t=>{
+    if(ui.epic&&t.epic!==ui.epic)return false;
+    if(ui.status&&t.status!==ui.status)return false;
+    if(ui.size&&t.size!==ui.size)return false;
+    if(ui.prio&&t.priority!==ui.prio)return false;
+    if(ui.skill&&t.skills!==ui.skill)return false;
+    if(ui.who==="__none"&&t.assignee)return false;
+    if(ui.who&&ui.who!=="__none"&&t.assignee!==ui.who)return false;
+    if(ui.ready&&!isReady(t))return false;
+    if(ui.late&&!isLate(t))return false;
+    if(q){const h=(t.id+" "+t.title+" "+t.what+" "+t.deliv+" "+t.skills+" "+t.assignee+" "+t.notes+" "+(t.evidence||"")+" "+t.gate).toLowerCase();if(!h.includes(q))return false;}
+    return true;
+  });
+}
+
+/* ---------- shell ---------- */
+function mark(size,pct){
+  // incomplete-circle mark; the gap is what remains
+  const r=size/2-size*0.09, c=2*Math.PI*r, p=Math.max(0,Math.min(1,pct==null?0.82:pct));
+  const sw=size*0.09;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+   <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--line)" stroke-width="${sw}"/>
+   ${p>0?`<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--gold)" stroke-width="${sw}" stroke-linecap="round"
+    stroke-dasharray="${(c*p).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 ${size/2} ${size/2})"/>`:""}</svg>`;
+}
+function renderShell(){
+  $("#root").innerHTML=`
+  <header class="top"><div class="wrap">
+    <div class="topbar">
+      <div class="brand">${mark(34,0.8)}<div><h1>SENTINEL elderly-care build board</h1><p>${esc(S.version)}, ${S.tasks.length} tasks, iHelp Robotics internal</p></div></div>
+      <div class="spacer"></div>
+      <span class="savestate" id="savestate" aria-live="polite"></span>
+      <button class="btn" id="addBtn">Add task</button>
+      <button class="btn" id="expBtn" hidden>Export CSV</button>
+      <button class="btn primary" id="saveBtn" disabled>Save changes</button>
+    </div>
+    <nav class="tabs" role="tablist">
+      ${[["overview","Overview"],["board","Board"],["list","All tasks"],["decisions","Decisions"],["models","Model readiness"]].map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${ui.tab===k}">${l}</button>`).join("")}
+    </nav>
+  </div></header>
+  <div class="wrap"><div id="notices"></div><main id="main"></main></div>`;
+  document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{ui.tab=b.dataset.tab;persistUI();document.querySelectorAll("[data-tab]").forEach(x=>x.setAttribute("aria-selected",x===b));renderMain();});
+  $("#saveBtn").onclick=save; $("#addBtn").onclick=addTask; $("#expBtn").onclick=exportCSV;
+  renderTop(); renderNotices();
+}
+function renderTop(){
+  const sb=$("#saveBtn"), ss=$("#savestate"); if(!sb)return;
+  if(writeMode==="readonly"){sb.hidden=true;ss.textContent="View only";$("#addBtn").hidden=true;return;}
+  if(writeMode==="local"){sb.hidden=true;ss.textContent=dirty?"Edits kept in this browser":"";return;}
+  sb.hidden=false; sb.disabled=!dirty||writeMode!=="shared";
+  ss.textContent=dirty?"Unsaved changes":(writeMode==="pending"?"Connecting":"All changes saved");
+}
+function renderNotices(){
+  const n=$("#notices"); if(!n)return; let h="";
+  if(staleDraft){h+=`<div class="notice"><span>You have edits from an earlier version of this board that were never saved. Someone has saved a newer version since.</span><span class="spacer"></span><button class="btn" id="rsDraft">Restore my edits</button><button class="btn ghost" id="dsDraft">Discard</button></div>`;}
+  if(writeMode==="local"){h+=`<div class="notice"><span>Shared saving isn't available in this view. Your edits are kept in this browser only. Open the board from claude.ai to save for the team.</span></div>`;}
+  n.innerHTML=h;
+  if(staleDraft){$("#rsDraft").onclick=()=>{S=staleDraft.state;staleDraft=null;changed();renderNotices();renderMain();};$("#dsDraft").onclick=()=>{staleDraft=null;clearDraft();renderNotices();};}
+}
+
+/* ---------- views ---------- */
+function renderMain(){
+  const m=$("#main");
+  (({overview:viewOverview,board:viewBoard,list:viewList,decisions:viewDecisions,models:viewModels})[ui.tab]||viewOverview)(m);
+}
+function statusBar(list){
+  const n=list.length||1;
+  return `<div class="bar" role="img" aria-label="${STATUSES.map(s=>s+": "+list.filter(t=>t.status===s).length).join(", ")}">`+
+    STATUSES.map(s=>{const c=list.filter(t=>t.status===s).length;return c?`<span style="width:${c/n*100}%;background:${SCOLOR[s]}"></span>`:""}).join("")+`</div>`;
+}
+function legend(){return `<div class="legend">${STATUSES.map(s=>`<span><i style="background:${SCOLOR[s]}"></i>${s}</span>`).join("")}</div>`}
+function viewOverview(m){
+  const T=S.tasks, done=T.filter(t=>t.status==="Done").length, active=T.length;
+  const P0=T.filter(t=>t.priority==="P0"), p0done=P0.filter(t=>t.status==="Done").length, late=T.filter(isLate).length;
+  const pct=active?done/active:0;
+  const ready=T.filter(isReady);
+  const openD=S.decisions.filter(d=>d.status!=="DECIDED");
+  const gated=T.filter(gateOpen).length;
+  const who=new Map();T.forEach(t=>{if(!t.assignee||t.status==="Done")return;who.set(t.assignee,(who.get(t.assignee)||0)+1)});
+  const unassigned=T.filter(t=>!t.assignee&&t.status!=="Done").length;
+  m.innerHTML=`
+  <h2 class="sec">Where the build stands</h2>
+  <p class="lede">A task counts as done only when its "Done when" test is met with evidence. "Existing" means code is there, not that it works live. Click any number, area or task to open it.</p>
+  <div class="ov-grid">
+    <div class="card pad ring-box">
+      ${mark(170,pct)}
+      <div style="margin-top:-112px;margin-bottom:66px"><div class="big">${Math.round(pct*100)}%</div><div class="lbl">${done} of ${active} verified done</div></div>
+      <div class="statrow">
+        <button class="stat" data-go="ready"><b>${ready.length}</b>ready to start</button>
+        <button class="stat" data-go="In progress"><b>${T.filter(t=>t.status==="In progress").length}</b>in progress</button>
+        <button class="stat" data-go="Blocked"><b>${T.filter(t=>t.status==="Blocked").length}</b>blocked</button>
+        <button class="stat" data-go="decisions"><b>${openD.length}</b>open decisions, holding ${gated} tasks</button>
+        <button class="stat" data-prio="P0"><b>${p0done}/${P0.length}</b>P0 demo tasks done</button>
+        <button class="stat" data-go="late"><b>${late}</b>overdue</button>
+      </div>
+    </div>
+    <div class="card pad">
+      <div class="h3">Progress by area</div>${legend()}
+      ${epics().map(([e,l])=>`<button class="epic-row" data-epic="${esc(e)}"><span class="epic-name">${esc(epicName(e))}</span>${statusBar(l)}<span class="epic-count">${l.filter(t=>t.status==="Done").length}/${l.length}</span></button>`).join("")}
+    </div>
+  </div>
+  <div class="two">
+    <div class="card pad"><div class="h3">Ready to start now</div>
+      <p class="small muted" style="margin:-4px 0 8px">Nothing it depends on is unfinished and no open decision is holding it.</p>
+      ${ready.length?`<ul class="mini-list">${ready.slice(0,12).map(t=>`<li><button data-open="${esc(t.id)}"><span class="mono-id">${esc(t.id)}</span><span class="t">${esc(t.title)}</span><span style="margin-left:auto;display:flex;gap:4px">${prioTag(t)}<span class="tag size">${esc(t.size)}</span></span></button></li>`).join("")}</ul>${ready.length>12?`<button class="btn ghost small" data-go="ready" style="padding-left:0">See all ${ready.length}</button>`:""}`:`<div class="empty">Nothing is cleanly startable. Every task either waits on an unfinished task or an open decision. Close the open decisions first.</div>`}
+    </div>
+    <div class="card pad"><div class="h3">Who has what</div>
+      <ul class="mini-list">
+      ${[...who.entries()].sort((a,b)=>b[1]-a[1]).map(([w,c])=>`<li><button data-who="${esc(w)}"><span class="t" style="font-weight:500">${esc(w)}</span><span class="muted small" style="margin-left:auto">${c} open</span></button></li>`).join("")}
+      <li><button data-who="__none"><span class="t" style="font-weight:500">Not assigned yet</span><span class="muted small" style="margin-left:auto">${unassigned} open</span></button></li>
+      </ul>
+      <div class="h3" style="margin-top:20px">Open decisions</div>
+      <ul class="mini-list">${openD.map(d=>`<li><button data-go="decisions"><span class="mono-id">${esc(d.id)}</span><span class="t">${esc(d.title)}</span></button></li>`).join("")||`<li class="muted small" style="padding:8px 0">All decisions are made.</li>`}</ul>
+    </div>
+  </div>
+  <div class="card pad" style="margin-top:24px"><div class="h3">Ground rules</div><div class="rules">${(S.readme||[]).map(r=>`<div class="k">${esc(r[0])}</div><div>${esc(r[1]||"")}${r[2]?`<span class="n">${esc(r[2])}</span>`:""}</div>`).join("")}</div></div>`;
+  m.querySelectorAll("[data-epic]").forEach(b=>b.onclick=()=>goList({epic:b.dataset.epic}));
+  m.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openTask(b.dataset.open));
+  m.querySelectorAll("[data-who]").forEach(b=>b.onclick=()=>goList({who:b.dataset.who}));
+  m.querySelectorAll("[data-prio]").forEach(b=>b.onclick=()=>goList({prio:b.dataset.prio}));
+  m.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const g=b.dataset.go;
+    if(g==="decisions"){switchTab("decisions");return;}
+    if(g==="ready"){goList({ready:true});return;}
+    if(g==="late"){goList({late:true});return;}
+    goList({status:g});});
+}
+function resetFilters(){Object.assign(ui,{q:"",epic:"",status:"",size:"",prio:"",skill:"",who:"",ready:false,late:false})}
+function goList(f){resetFilters();Object.assign(ui,f);switchTab("list")}
+function switchTab(k){ui.tab=k;persistUI();document.querySelectorAll("[data-tab]").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===k));renderMain();window.scrollTo(0,0)}
+
+function filtersHTML(withStatus){
+  const opt=(v,l,cur)=>`<option value="${esc(v)}"${v===cur?" selected":""}>${esc(l)}</option>`;
+  return `<div class="filters">
+   <input type="search" class="field" id="fq" placeholder="Search tasks, evidence, people, D-0x" value="${esc(ui.q)}" aria-label="Search">
+   <select class="field" id="fe" aria-label="Area">${opt("","All areas",ui.epic)}${epics().map(([e])=>opt(e,epicName(e),ui.epic)).join("")}</select>
+   ${withStatus?`<select class="field" id="fs" aria-label="Status">${opt("","Any status",ui.status)}${STATUSES.map(s=>opt(s,s,ui.status)).join("")}</select>`:""}
+   <select class="field" id="fp" aria-label="Priority">${opt("","Any priority",ui.prio)}${PRIOS.map(p=>opt(p,PLABEL[p],ui.prio)).join("")}</select>
+   <select class="field" id="fz" aria-label="Size">${opt("","Any size",ui.size)}${opt("S","S, up to 1 day",ui.size)}${opt("M","M, 2 to 3 days",ui.size)}</select>
+   <select class="field" id="fk" aria-label="Skill">${opt("","Any skill",ui.skill)}${skillsList().map(s=>opt(s,s,ui.skill)).join("")}</select>
+   <select class="field" id="fw" aria-label="Assignee">${opt("","Anyone",ui.who)}${opt("__none","Not assigned",ui.who)}${whoList().map(s=>opt(s,s,ui.who)).join("")}</select>
+   <label class="chk"><input type="checkbox" id="fr"${ui.ready?" checked":""}> Ready to start</label>
+   <button class="btn ghost small" id="fclear">Clear</button>
+   <span class="count-note" id="fcount"></span>
+  </div>`;
+}
+function bindFilters(rerender){
+  const on=(id,key,ev)=>{const el=$(id);if(!el)return;el.addEventListener(ev||"change",()=>{ui[key]=el.type==="checkbox"?el.checked:el.value;persistUI();rerender();});};
+  on("#fq","q","input");on("#fe","epic");on("#fs","status");on("#fz","size");on("#fp","prio");on("#fk","skill");on("#fw","who");on("#fr","ready");
+  $("#fclear").onclick=()=>{resetFilters();persistUI();renderMain();};
+}
+
+function cardHTML(t){
+  const g=gateOpen(t), w=!depsDone(t)&&t.status==="To do";
+  return `<div class="tcard" draggable="${writeMode!=="readonly"}" data-id="${esc(t.id)}" tabindex="0" role="button" aria-label="${esc(t.id+" "+t.title)}">
+    <div class="row1"><span class="mono-id">${esc(t.id)}</span><span class="epic-chip">${esc(epicName(t.epic))}</span></div>
+    <div class="ttl">${esc(t.title)}</div>
+    <div class="meta">${prioTag(t)}<span class="tag size">${esc(t.size)}</span>${dueTag(t)}${t.assignee?`<span class="tag who">${esc(t.assignee)}</span>`:""}${g?`<span class="tag gate">Waiting on ${esc(t.gate)}</span>`:""}${w?`<span class="tag wait">Waiting on other tasks</span>`:""}</div>
+  </div>`;
+}
+const COL_LIMIT=40;
+function viewBoard(m){
+  const draw=()=>{
+    const L=filtered();
+    $("#fcount").textContent=`${L.filter(t=>BOARD_COLS.includes(t.status)).length} tasks shown`;
+    $("#bd").innerHTML=BOARD_COLS.map(s=>{const c=L.filter(t=>t.status===s);
+      return `<section class="col" data-col="${esc(s)}" aria-label="${esc(s)}"><h4><span class="dot" style="background:${SCOLOR[s]}"></span>${s}<span class="n">${c.length}</span></h4>
+       ${c.slice(0,COL_LIMIT).map(cardHTML).join("")}${c.length>COL_LIMIT?`<div class="more">${c.length-COL_LIMIT} more, narrow the filters to see them</div>`:""}</section>`}).join("");
+    bindBoard();
+  };
+  m.innerHTML=`<h2 class="sec">Board</h2><p class="lede">Drag a card to change its status, or open it to edit everything. Moving a card to Done is a claim that its "Done when" test passed.</p>${filtersHTML(false)}<div class="board" id="bd"></div>`;
+  bindFilters(draw); draw();
+}
+function bindBoard(){
+  document.querySelectorAll(".tcard").forEach(c=>{
+    c.onclick=()=>openTask(c.dataset.id);
+    c.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openTask(c.dataset.id)}};
+    c.ondragstart=e=>{e.dataTransfer.setData("text/plain",c.dataset.id);c.classList.add("dragging")};
+    c.ondragend=()=>c.classList.remove("dragging");
+  });
+  document.querySelectorAll(".col").forEach(col=>{
+    col.ondragover=e=>{e.preventDefault();col.classList.add("over")};
+    col.ondragleave=()=>col.classList.remove("over");
+    col.ondrop=e=>{e.preventDefault();col.classList.remove("over");if(writeMode==="readonly")return;
+      const t=byId(e.dataTransfer.getData("text/plain"));if(t&&t.status!==col.dataset.col){t.status=col.dataset.col;changed();viewBoard($("#main"));}};
+  });
+}
+function viewList(m){
+  const draw=()=>{
+    const L=filtered().slice().sort((a,b)=>{const k=ui.sort;if(k==="id")return (S.tasks.indexOf(a)-S.tasks.indexOf(b))*ui.dir;return String(a[k]||"").localeCompare(String(b[k]||""),undefined,{numeric:true})*ui.dir});
+    $("#fcount").textContent=`${L.length} of ${S.tasks.length} tasks`;
+    const ro=writeMode==="readonly";
+    $("#lt").innerHTML=L.length?L.map(t=>`<tr>
+      <td><span class="mono-id">${esc(t.id)}</span></td>
+      <td class="tcell"><button data-open="${esc(t.id)}">${esc(t.title)}</button>${gateOpen(t)?` <span class="tag gate">Waiting on ${esc(t.gate)}</span>`:""}</td>
+      <td class="epic-chip">${esc(epicName(t.epic))}</td>
+      <td>${prioTag(t)}</td>
+      <td><span class="tag size">${esc(t.size)}</span></td>
+      <td class="epic-chip">${esc(t.skills)}</td>
+      <td><input type="date" class="field" data-f="due" data-id="${esc(t.id)}" value="${esc(t.due)}" aria-label="Due date for ${esc(t.id)}" style="width:142px${isLate(t)?";border-color:var(--s-block);color:var(--s-block)":""}"${ro?" disabled":""}></td>
+      <td><input class="field" data-f="assignee" data-id="${esc(t.id)}" value="${esc(t.assignee)}" placeholder="Assign" aria-label="Assignee for ${esc(t.id)}" style="width:130px"${ro?" disabled":""}></td>
+      <td><select class="field" data-f="status" data-id="${esc(t.id)}" aria-label="Status for ${esc(t.id)}"${ro?" disabled":""}>${STATUSES.map(s=>`<option${s===t.status?" selected":""}>${s}</option>`).join("")}</select></td>
+    </tr>`).join(""):`<tr><td colspan="9" class="empty">No tasks match these filters.</td></tr>`;
+    document.querySelectorAll("#lt [data-open]").forEach(b=>b.onclick=()=>openTask(b.dataset.open));
+    document.querySelectorAll("#lt [data-f]").forEach(el=>el.addEventListener("change",()=>{const t=byId(el.dataset.id);t[el.dataset.f]=el.value.trim();changed();if(el.dataset.f==="due")draw();}));
+  };
+  const th=(k,l)=>`<th data-sort="${k}" aria-sort="${ui.sort===k?(ui.dir>0?"ascending":"descending"):"none"}">${l}${ui.sort===k?(ui.dir>0?" ▲":" ▼"):""}</th>`;
+  m.innerHTML=`<h2 class="sec">All tasks</h2><p class="lede">Assign people and change status right in the table. Click a task name for the full brief.</p>${filtersHTML(true)}
+   <div class="tablewrap"><table class="list"><thead><tr>${th("id","ID")}${th("title","Task")}${th("epic","Area")}${th("priority","Priority")}${th("size","Size")}${th("skills","Skills")}${th("due","Due")}${th("assignee","Assignee")}${th("status","Status")}</tr></thead><tbody id="lt"></tbody></table></div>`;
+  m.querySelectorAll("[data-sort]").forEach(h=>h.onclick=()=>{const k=h.dataset.sort;if(ui.sort===k)ui.dir*=-1;else{ui.sort=k;ui.dir=1}persistUI();viewList(m)});
+  bindFilters(draw); draw();
+}
+function viewDecisions(m){
+  const ro=writeMode==="readonly";
+  const blockedBy=id=>S.tasks.filter(t=>t.gate===id&&t.status!=="Done").length;
+  const order={OPEN:0,ACTION:1,DECIDED:2};
+  const L=S.decisions.slice().sort((a,b)=>order[a.status]-order[b.status]||a.id.localeCompare(b.id,undefined,{numeric:true}));
+  m.innerHTML=`<h2 class="sec">Decisions</h2><p class="lede">${S.decisions.filter(d=>d.status!=="DECIDED").length} still open, holding every task gated on them. Change a status to Decided and the tasks it was holding become startable.</p>
+  <div class="dgrid">${L.map(d=>{const [lab,col,bg]=DSTAT[d.status]||DSTAT.OPEN;const n=blockedBy(d.id);return `<article class="card dcard" data-st="${esc(d.status)}">
+    <div class="top"><span class="mono-id">${esc(d.id)}</span>
+      <select class="field" data-d="status" data-id="${esc(d.id)}" aria-label="Status for ${esc(d.id)}" style="min-height:30px;padding:3px 8px;font-size:13px;color:${col};background:${bg};border-color:${bg}"${ro?" disabled":""}>
+        ${Object.entries(DSTAT).map(([k,v])=>`<option value="${k}"${k===d.status?" selected":""}>${v[0]}</option>`).join("")}</select>
+      ${n?`<button class="btn ghost small" data-gate="${esc(d.id)}" style="margin-left:auto;padding:4px 6px;min-height:0">Holding ${n} task${n>1?"s":""}</button>`:""}</div>
+    <h4>${esc(d.title)}</h4>
+    <dl><dt>Why it matters</dt><dd>${esc(d.why)}</dd><dt>Recommendation</dt><dd>${esc(d.rec)}</dd><dt>Gates these tasks</dt><dd>${esc(S.tasks.filter(t=>t.gate===d.id).map(t=>t.id).join(", ")||"None")}</dd></dl>
+    <label class="f full">Owner<input class="field" data-d="owner" data-id="${esc(d.id)}" value="${esc(d.owner||"")}" placeholder="Who closes this"${ro?" disabled":""}></label>
+    <label class="f full" style="margin-top:8px">Decision / notes<textarea class="field" data-d="decision" data-id="${esc(d.id)}"${ro?" disabled":""}>${esc(d.decision)}</textarea></label>
+  </article>`}).join("")}</div>`;
+  m.querySelectorAll("[data-d]").forEach(el=>el.addEventListener("change",()=>{const d=S.decisions.find(x=>x.id===el.dataset.id);d[el.dataset.d]=el.value;d.date=new Date().toISOString().slice(0,10);changed();if(el.dataset.d==="status")viewDecisions(m);}));
+  m.querySelectorAll("[data-gate]").forEach(b=>b.onclick=()=>{resetFilters();ui.q=b.dataset.gate;switchTab("list")});
+}
+function viewModels(m){
+  const ro=writeMode==="readonly";
+  const nv=S.models.filter(x=>x.live!=="Validated").length;
+  m.innerHTML=`<h2 class="sec">Model readiness</h2><p class="lede">Trained weights are not the same as validated live inference. A model moves to Validated only when its outputs match the original reference run.</p>
+  ${nv?`<div class="warnbox"><b>${nv} of ${S.models.length} models are not validated for live use.</b> Until they are, the demo can show pose tracking on a labelled TEST VIDEO, but must not show fall, choking or distress alerts as real.</div>`:""}
+  <div class="mgrid">${S.models.map((x,i)=>{const t=byId(x.task);return `<article class="card mcard" data-live="${esc(x.live)}">
+    <h4>${esc(x.name)}</h4>
+    <div class="chips"><span class="tag">Weights: ${esc(x.weights)}</span><span class="tag">${esc(x.input)}</span>${t?`<button class="dep" data-open="${esc(t.id)}"><span class="dot" style="background:${SCOLOR[t.status]}"></span><b class="mono-id" style="min-width:0">${esc(t.id)}</b>${esc(t.status)}</button>`:""}</div>
+    <label class="f">Live inference<select class="field" data-m="live" data-i="${i}"${ro?" disabled":""}>${LIVE.map(v=>`<option${v===x.live?" selected":""}>${v}</option>`).join("")}</select></label>
+    <label class="f">Main blocker<textarea class="field" data-m="blocker" data-i="${i}"${ro?" disabled":""}>${esc(x.blocker)}</textarea></label>
+    <label class="f">Next action<textarea class="field" data-m="next" data-i="${i}"${ro?" disabled":""}>${esc(x.next)}</textarea></label>
+  </article>`}).join("")}</div>`;
+  m.querySelectorAll("[data-m]").forEach(el=>el.addEventListener("change",()=>{S.models[+el.dataset.i][el.dataset.m]=el.value.trim();changed();if(el.dataset.m==="live")viewModels(m);}));
+  m.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openTask(b.dataset.open));
+}
+/* ---------- drawer ---------- */
+function openTask(id){
+  const t=byId(id); if(!t)return; ui.open=id; const ro=writeMode==="readonly";
+  closeDrawer(true);
+  const deps=parseDeps(t.deps), users=S.tasks.filter(x=>parseDeps(x.deps).includes(id));
+  const ids=filtered().map(x=>x.id); const i=ids.indexOf(id);
+  const sc=document.createElement("div");sc.className="scrim";sc.onclick=()=>closeDrawer();
+  const dr=document.createElement("aside");dr.className="drawer";dr.setAttribute("role","dialog");dr.setAttribute("aria-modal","true");dr.setAttribute("aria-label","Task "+id);
+  const fld=(k,l,full,ta)=>`<label class="f${full?" full":""}">${l}${ta?`<textarea class="field" data-k="${k}"${ro?" disabled":""}>${esc(t[k])}</textarea>`:`<input class="field" data-k="${k}" value="${esc(t[k])}"${ro?" disabled":""}>`}</label>`;
+  const chip=x=>{const d=byId(x);return `<button class="dep" data-open="${esc(x)}"><span class="dot" style="background:${SCOLOR[d.status]}"></span><b class="mono-id" style="min-width:0">${esc(x)}</b>${esc(d.title.length>38?d.title.slice(0,36)+"…":d.title)}</button>`};
+  dr.innerHTML=`
+   <div class="dr-head"><span class="mono-id" style="font-size:14px">${esc(t.id)}</span><span class="epic-chip">${esc(epicName(t.epic))}</span><span class="spacer"></span>
+     <button class="btn ghost" id="dPrev" ${i<=0?"disabled":""} aria-label="Previous task">‹</button><button class="btn ghost" id="dNext" ${i<0||i>=ids.length-1?"disabled":""} aria-label="Next task">›</button>
+     <button class="btn ghost" id="dClose" aria-label="Close">✕</button></div>
+   <div class="dr-body">
+     <input class="dr-title" data-k="title" value="${esc(t.title)}" aria-label="Task title"${ro?" disabled":""}>
+     <div class="fgrid">
+       <label class="f">Status<select class="field" data-k="status"${ro?" disabled":""}>${STATUSES.map(s=>`<option${s===t.status?" selected":""}>${s}</option>`).join("")}</select></label>
+       ${fld("assignee","Assignee")}
+       <label class="f">Priority<select class="field" data-k="priority"${ro?" disabled":""}>${PRIOS.map(p=>`<option value="${p}"${p===t.priority?" selected":""}>${PLABEL[p]}</option>`).join("")}</select></label>
+       <label class="f">Due date<input type="date" class="field" data-k="due" value="${esc(t.due)}"${ro?" disabled":""}></label>
+       <label class="f">Size<select class="field" data-k="size"${ro?" disabled":""}><option value="S"${t.size==="S"?" selected":""}>S, up to 1 day</option><option value="M"${t.size==="M"?" selected":""}>M, 2 to 3 days</option></select></label>
+       ${fld("skills","Skills")}
+       ${fld("what","What to do",true,true)}
+       ${fld("deliv","Deliverables",true,true)}
+       ${fld("done","Done when",true,true)}
+       ${fld("deps","Depends on")}
+       ${fld("gate","Decision gate")}
+       ${fld("evidence","Current evidence / risk",true,true)}
+       ${fld("notes","Notes",true,true)}
+     </div>
+     ${gateOpen(t)?`<div class="notice" style="margin:0 0 14px">Waiting on decision ${esc(t.gate)}: ${esc((S.decisions.find(d=>d.id===t.gate)||{}).title||"")}</div>`:""}
+     <div class="small muted" style="font-weight:600">Needs these first</div><div class="deps">${deps.map(chip).join("")||`<span class="small muted">Nothing. It can start any time.</span>`}</div>
+     <div class="small muted" style="font-weight:600;margin-top:14px">These wait on it</div><div class="deps">${users.map(x=>chip(x.id)).join("")||`<span class="small muted">No other task depends on this.</span>`}</div>
+   </div>
+   <div class="dr-foot">${ro?"":`<button class="btn danger" id="dDel">Delete task</button>`}<span class="spacer"></span><button class="btn" id="dDone">Done editing</button></div>`;
+  document.body.append(sc,dr);
+  dr.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("change",()=>{t[el.dataset.k]=el.value.trim();changed();}));
+  dr.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openTask(b.dataset.open));
+  $("#dClose").onclick=$("#dDone").onclick=()=>closeDrawer();
+  $("#dPrev").onclick=()=>openTask(ids[i-1]); $("#dNext").onclick=()=>openTask(ids[i+1]);
+  const del=$("#dDel"); if(del)del.onclick=()=>{if(!confirm(`Delete ${t.id}? This removes it from the board for everyone once saved.`))return;S.tasks=S.tasks.filter(x=>x.id!==t.id);changed();closeDrawer();toast(`${t.id} deleted. Save to share the change.`)};
+  dr.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});
+  setTimeout(()=>dr.querySelector(".dr-title").focus(),30);
+}
+function closeDrawer(silent){
+  document.querySelectorAll(".scrim,.drawer").forEach(x=>{
+    if(x.classList.contains("drawer")){const a=document.activeElement;if(a&&x.contains(a)&&a.matches("[data-k]"))a.dispatchEvent(new Event("change"));}
+    x.remove();});
+  if(!silent){ui.open=null;renderMain();}
+}
+function addTask(){
+  const ep=ui.epic||epics()[0][0];
+  let n=1;while(byId("SEN-"+String(n).padStart(3,"0")))n++;
+  const id="SEN-"+String(n).padStart(3,"0");
+  S.tasks.push({id,epic:ep,title:"New task",what:"",deliv:"",done:"",deps:"—",size:"S",skills:"",gate:"—",assignee:"",status:"To do",priority:"P1",due:"",evidence:"",notes:""});
+  changed(); renderMain(); openTask(id); toast(`${id} added to ${epicName(ep)}`);
+}
+
+/* ---------- save & export ---------- */
+function buildHTML(state){
+  const css=document.getElementById("app-css").textContent, js=document.getElementById("app-js").textContent;
+  const data=JSON.stringify(state).replace(/</g,"\\u003c");
+  return "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n<meta name=\"color-scheme\" content=\"light\">\n<title>SENTINEL elderly-care build board</title>\n"+
+   "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n"+
+   "<link href=\"https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap\" rel=\"stylesheet\">\n"+
+   "<style id=\"app-css\">"+css+"</style>\n</head>\n<body>\n<div id=\"root\"></div>\n<script type=\"application/json\" id=\"board-data\">"+data+"</"+"script>\n<script id=\"app-js\">"+js+"</"+"script>\n</body>\n</html>\n";
+}
+async function save(){
+  if(!artifactNS||!dirty)return;
+  const btn=$("#saveBtn"); btn.disabled=true; btn.textContent="Saving";
+  const next=Object.assign({},S,{savedAt:new Date().toISOString()});
+  saveDraft({pending:next.savedAt});
+  try{
+    await artifactNS.publish(buildHTML(next));
+    dirty=false; clearDraft(); renderTop(); btn.textContent="Save changes"; toast("Saved for everyone");
+  }catch(e){
+    btn.textContent="Save changes";
+    const c=e&&e.code;
+    if(c==="conflict"){toast("Someone saved first. Reloading their version; your edits will be offered back.");saveDraft();return;}
+    if(c==="not_writer"||c==="not_granted"||c==="consent_required"||c==="not_declared"){writeMode="local";renderTop();renderNotices();toast("You can view this board but not save it. Edits stay in this browser.");return;}
+    if(c==="rate_limited"){toast("Saving too often. Wait a moment and save again.");btn.disabled=false;return;}
+    if(c==="too_large"){toast("The board is too large to save. Remove some notes and try again.");btn.disabled=false;return;}
+    toast("Couldn't save just now. Your edits are kept; try again.");btn.disabled=false;
+  }
+}
+function exportCSV(){
+  if(!downloadsNS)return;
+  const cols=["id","epic","title","what","deliv","done","deps","size","skills","gate","assignee","status","priority","due","evidence","notes"];
+  const head=["ID","Epic","Task","What to do","Deliverables","Done when","Depends on","Size","Skills","Decision gate","Assignee","Status","Priority","Due date","Current evidence / risk","Notes"];
+  const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+  const csv="\ufeff"+[head.map(q).join(",")].concat(S.tasks.map(t=>cols.map(k=>q(t[k])).join(","))).join("\r\n");
+  downloadsNS.save({filename:"SENTINEL_build_board.csv",data:new Blob([csv],{type:"text/csv"})}).then(()=>toast("CSV saved")).catch(e=>{if(e&&e.code==="declined")return;if(e&&["unavailable","not_granted","capability_disabled","capability_removed"].includes(e.code)){$("#expBtn").hidden=true;return;}toast("Export didn't complete. Try again.")});
+}
+window.addEventListener("beforeunload",e=>{if(dirty){saveDraft();}});
+
+/* ---------- boot ---------- */
+renderShell(); renderMain();
+const C=window.claude;
+if(C&&typeof C.use==="function"){
+  C.use("artifact").then(ns=>{artifactNS=ns;writeMode=ns?"shared":"local";renderTop();renderNotices();}).catch(()=>{writeMode="local";renderTop();renderNotices();});
+  C.use("downloads").then(ns=>{downloadsNS=ns;const b=$("#expBtn");if(b)b.hidden=!ns;}).catch(()=>{});
+}else{writeMode="local";renderTop();renderNotices();}
+})();
+</script>
+</body>
+</html>

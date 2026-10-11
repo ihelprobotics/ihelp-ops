@@ -67,7 +67,7 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'" + (DEV ? " 'unsafe-eval'" : ""),
-      // Google Fonts, for the MITRA board's typefaces (/mitra). Stylesheets and
+      // Google Fonts, for the build boards' typefaces (/mitra, /sentinel). Stylesheets and
       // font files only: neither can run code or send anything anywhere.
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
@@ -95,11 +95,14 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
 
-  // The MITRA build board is one self-contained page, generated from the
-  // board's own HTML by mitra-build-board/build.py into public/mitra/. It is
-  // behind sign-in like everything else: the middleware matcher covers it.
+  // Each build board is one self-contained page, generated from the board's
+  // own HTML by plan-boards/build.py into public/<board>/. They are behind
+  // sign-in like everything else: the middleware matcher covers them.
   async rewrites() {
-    return [{ source: "/mitra", destination: "/mitra/index.html" }];
+    return [
+      { source: "/mitra", destination: "/mitra/index.html" },
+      { source: "/sentinel", destination: "/sentinel/index.html" },
+    ];
   },
 };
 

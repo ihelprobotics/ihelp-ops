@@ -1,10 +1,11 @@
-// Where each started MITRA task actually is, derived the same way as the board.
+// Where each started build-board task actually is, derived the same way as the
+// Ops board.
 //
-// A MITRA row that has been started in Ops points at owner/name#n. From then on
+// A plan row that has been started in Ops points at owner/name#n. From then on
 // its column is not typed by anyone: it is the stage ladder in
 // app/lib/progress.ts, read from the same artifacts the Ops board reads —
-// events, commits carrying the task trailer, branches — and mapped onto the
-// MITRA board's own column names.
+// events, commits carrying the task trailer, branches — and mapped onto that
+// board's own column names (columnFor in app/lib/plan-boards.ts).
 //
 // The list of issues comes from the store, never from the request. Otherwise
 // this route would read any repository the token can see for anybody who asked.
@@ -15,7 +16,8 @@ import { cached } from "@/app/lib/cache";
 import { repos, taskHref } from "@/app/lib/repos";
 import { openWorkFor } from "@/app/lib/work";
 import { stageOf, stageLabel, branchIsForTask, STAGE } from "@/app/lib/progress";
-import { ISSUE_RE } from "@/app/lib/mitra-store";
+import { ISSUE_RE } from "@/app/lib/plan-store";
+import type { PlanBoard } from "@/app/lib/plan-boards";
 
 export type LiveTask = {
   /** owner/name#n */
@@ -25,29 +27,22 @@ export type LiveTask = {
   /** null when GitHub could not be read for this one; `error` says why. */
   progress: number | null;
   stage: string | null;
-  /** The MITRA column this belongs in, or null when it cannot be known. */
+  /** The board column this belongs in, or null when it cannot be known or the board has none for it. */
   column: string | null;
+  /** GitHub login on the issue, null for nobody. Undefined when unread. */
+  assignee?: string | null;
   error: string | null;
 };
 
-/** The ladder, in the MITRA board's words. One place, so the bands cannot drift. */
-function columnFor(progress: number, closed: null | "completed" | "not_planned"): string {
-  if (closed === "not_planned") return "Deferred (v1.1)";
-  if (closed || progress >= STAGE.merged) return "Done";
-  if (progress >= STAGE.pr_open) return "In review";
-  if (progress >= STAGE.branched) return "In progress";
-  return "To do";
-}
-
 /** A closed issue is not in the open list, so it is read on its own. */
 const closedIssue = (repo: string, n: number) =>
-  cached(`mitra-issue:${repo}#${n}`, async () => {
+  cached(`plan-issue:${repo}#${n}`, async () => {
     const { status, body } = await ghFetch(`/repos/${repo}/issues/${n}`, { allow: [404, 410] });
     if (status !== 200) return null;
     return body;
   }, 60_000);
 
-export async function liveStatus(tasks: { id: string; issue?: string }[]): Promise<Record<string, LiveTask>> {
+export async function liveStatus(board: PlanBoard, tasks: { id: string; issue?: string }[]): Promise<Record<string, LiveTask>> {
   const linked = tasks
     .map((t) => ({ id: t.id, m: ISSUE_RE.exec(t.issue || "") }))
     .filter((x): x is { id: string; m: RegExpExecArray } => !!x.m)
@@ -83,9 +78,10 @@ export async function liveStatus(tasks: { id: string; issue?: string }[]): Promi
       if (w.error) return fail(w.error);
 
       let closed: null | "completed" | "not_planned" = null;
-      if (!w.issues.some((i: any) => i.number === number)) {
+      let issue: any = w.issues.find((i: any) => i.number === number);
+      if (!issue) {
         try {
-          const issue = await closedIssue(repo, number);
+          issue = await closedIssue(repo, number);
           if (!issue) return fail(`${ref} no longer exists on GitHub, or the token cannot see it.`);
           if (issue.state === "closed") closed = issue.state_reason === "not_planned" ? "not_planned" : "completed";
         } catch (e: any) {
@@ -103,7 +99,8 @@ export async function liveStatus(tasks: { id: string; issue?: string }[]): Promi
         ...base,
         progress,
         stage: closed === "not_planned" ? "Closed as not planned" : closed && progress < STAGE.merged ? "Closed" : stageLabel(progress),
-        column: columnFor(progress, closed),
+        column: board.columnFor(progress, closed),
+        assignee: issue.assignees?.[0]?.login ?? issue.assignee?.login ?? null,
         error: null,
       };
     })

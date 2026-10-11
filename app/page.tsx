@@ -19,6 +19,8 @@ import { BOARD_CSS } from "@/app/ui/board-css";
 import Nav from "@/app/ui/nav";
 import BoardCard from "@/app/ui/board-card";
 import Filters, { type Show } from "@/app/ui/board-filters";
+import PlanCard, { PLAN_CARD_CSS } from "@/app/ui/plan-card";
+import { PLAN_BOARDS } from "@/app/lib/plan-boards";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +135,14 @@ export default async function BoardPage({
         </div>
       )}
 
+      {/* The plans the work comes from. Shown even when GitHub cannot be read:
+          they live in their own store, and say so themselves when that fails. */}
+      <section className="plans" aria-label="Build plans">
+        {Object.values(PLAN_BOARDS).map((b) => (
+          <PlanCard key={b.key} board={b} />
+        ))}
+      </section>
+
       {board && (
         <>
           <Filters show={show} repo={repo} repos={repoNames} counts={counts} canBeMine={!!login} />
@@ -193,7 +203,7 @@ export default async function BoardPage({
         </>
       )}
 
-      <style dangerouslySetInnerHTML={{ __html: BASE_CSS + BOARD_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: BASE_CSS + BOARD_CSS + PLAN_CARD_CSS }} />
     </main>
   );
 }
