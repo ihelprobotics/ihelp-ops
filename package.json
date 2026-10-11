@@ -33,5 +33,10 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "typescript": "^5.7"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.23"
+    }
   }
 }
