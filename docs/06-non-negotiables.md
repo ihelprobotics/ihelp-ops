@@ -22,6 +22,13 @@ GitHub like every other task. The store refuses a typed status for a linked row
 and refuses to delete it (`app/lib/plan-store.ts`), so a stale tab cannot
 undo that either.
 
+A linked card that someone tries to drag says what would move it instead
+(2026-10-12): the drag is cancelled and the card, its status field and its
+drawer name the next step in GitHub — a branch named `task/<n>/…` for In
+progress, a pull request for review, a merge or a closed issue for Done
+(`moveHow` and `moveSteps` in `plan-boards/ops.js`). They only put the ladder in
+`app/lib/progress.ts` into words; they never set a column.
+
 Assignment follows the same line (2026-10-11). A planned row carries no typed
 assignee: assigning it opens its issue with that person on it, under the rules
 in `app/lib/assign.ts`, and from then on the name is GitHub's. The store drops a

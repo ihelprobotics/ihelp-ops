@@ -14,3 +14,11 @@
 .opsdone .btn.opsgo{font-size:12px;padding:4px 9px;text-decoration:none;cursor:pointer}
 .opsdone .btn.opsgo[disabled]{opacity:.45;cursor:not-allowed}
 .opsdone-why{flex-basis:100%;font-size:11.5px;color:var(--muted,#6b6b6b);line-height:1.35}
+.opssteps{margin:8px 0 0;padding-left:20px}
+.opssteps li{margin:4px 0;color:var(--muted,#777)}
+.opssteps li.next{color:inherit}
+.opssteps li.next::marker{color:var(--gold-ink);font-weight:700}
+.opssteps li.ok{text-decoration:line-through;opacity:.7}
+.opssteps code{font-size:12.5px;background:var(--wash2,rgba(0,0,0,.05));padding:1px 4px;border-radius:4px;word-break:break-all}
+.opssteps .opscopy{padding:2px 8px;font-size:12px;margin-left:4px;min-height:0}
+.tcard.linked{cursor:grab}

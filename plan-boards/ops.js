@@ -18,12 +18,28 @@ function applyLive(){
     if(l.assignee!==undefined){const a=l.assignee||"";t.assignee=a;if(b)b.assignee=a;}
   });
 }
+// What moves a linked card, said as the next thing to do in GitHub. The ladder
+// itself is app/lib/progress.ts and the columns app/lib/plan-boards.ts; this
+// only puts it in words, so a person who tries to drag the card learns what
+// would move it instead of only that it won't.
+const REVIEW_COL=/\/sentinel$/.test(OPS_API)?"Needs verification":"In review";
+const slug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").split("-").filter(Boolean).slice(0,4).join("-")||"work";
+function branchFor(t){const ref=linkOf(t);return ref?`task/${ref.split("#")[1]}/${slug(t.title)}`:"";}
+function moveHow(t){
+  const ref=linkOf(t); if(!ref)return pendingOf(t)?`${t.id}'s GitHub issue is being opened. Its column will follow that issue.`:"";
+  const repo=ref.split("#")[0], n=ref.split("#")[1], l=GH_LIVE[t.id], p=l&&!l.error?l.progress:null;
+  const head=`${t.id} follows ${ref}, so its column moves with GitHub, not by dragging.`;
+  if(l&&l.column==="Done")return `${t.id} is done: ${ref} was merged or closed.`;
+  if(p==null||p<20)return `${head} To move it to In progress, create a branch named task/${n}/… in ${repo}, e.g. ${branchFor(t)}.`;
+  if(p<60)return `${head} To move it to ${REVIEW_COL}, open a pull request from its task/${n}/… branch.`;
+  return `${head} To move it to Done, merge its pull request or close ${ref}.`;
+}
 function revertLinked(){
   if(!B)return;
   S.tasks.forEach(t=>{
     if(!linkOf(t)&&!pendingOf(t))return;
     const b=B.t.get(t.id); if(!b)return;
-    if(t.status!==b.status){t.status=b.status;toast(`${t.id} follows ${linkOf(t)||"its GitHub issue"}, so its column can't be changed here.`);}
+    if(t.status!==b.status){t.status=b.status;toast(moveHow(t));}
     if(sv(t.assignee)!==sv(b.assignee)){t.assignee=b.assignee;toast(`${t.id} follows ${linkOf(t)||"its GitHub issue"}. Assign it from its drawer.`);}
   });
 }
@@ -67,12 +83,15 @@ function decorate(){
     c.dataset.ops="1"; const t=byId(c.dataset.id); if(!t)return;
     if(t.status==="Done")doneLinks(c,t);
     if(!linkOf(t)&&!pendingOf(t))return;
-    c.setAttribute("draggable","false"); c.classList.add("linked");
+    // Still draggable, so the attempt can be answered: the drag is cancelled
+    // and the card says what would move it.
+    c.ondragstart=e=>{e.preventDefault();toast(moveHow(t));}; c.classList.add("linked");
+    c.title=moveHow(t);
     const m=c.querySelector(".meta"); if(m)m.insertAdjacentHTML("afterbegin",liveTag(t));
   });
   document.querySelectorAll("select[data-f=status][data-id]:not([data-ops])").forEach(el=>{
     el.dataset.ops="1"; const t=byId(el.dataset.id);
-    if(t&&(linkOf(t)||pendingOf(t))){el.disabled=true;el.title="Follows "+(linkOf(t)||"its GitHub issue");}
+    if(t&&(linkOf(t)||pendingOf(t))){el.disabled=true;el.title=moveHow(t);}
   });
   if(writeMode==="live")document.querySelectorAll("input[data-f=assignee][data-id]:not([data-ops])").forEach(el=>{
     el.dataset.ops="1"; const t=byId(el.dataset.id); el.disabled=true;
@@ -134,7 +153,7 @@ function fillDrawer(dr){
   const asg=dr.querySelector("[data-k=assignee]");
   if(asg&&writeMode==="live"){asg.disabled=true;asg.title=ref?"Follows the GitHub issue. Reassign it below.":"Assign it below. Assigning opens its GitHub issue.";}
   if(ref||pendingOf(t)){
-    const st=dr.querySelector("[data-k=status]"); if(st){st.disabled=true;st.title="Follows the GitHub issue";}
+    const st=dr.querySelector("[data-k=status]"); if(st){st.disabled=true;st.title=moveHow(t);}
     const del=dr.querySelector("#dDel"); if(del)del.hidden=true;
   }
   if(ref){
@@ -142,8 +161,9 @@ function fillDrawer(dr){
     const canPick=!!(s.assignsOthers||(!who&&s.login));
     box.innerHTML=`<div class="opshead"><b>Started in Ops</b> as <a href="${esc(opsHref(ref))}">${esc(ref)}</a></div>`+
       (l&&l.error?`<p class="opserr">Its status can't be read right now: ${esc(l.error)}</p>`
-       :l?`<p>${esc(l.stage)}${l.progress!=null?` (${l.progress}%)`:""}. The column follows GitHub: branch, pull request, review, merge. Nobody sets it by hand.</p>`
+       :l?`<p>${esc(l.stage)}${l.progress!=null?` (${l.progress}%)`:""}.</p>`
        :liveErr?`<p class="opserr">Status unavailable: ${esc(liveErr)}</p>`:`<p class="muted">Reading its status from GitHub…</p>`)+
+      moveSteps(t)+
       (l&&!l.error?`<p><b>Assigned to:</b> ${who?esc(mine?"you":personLabel(who)):"nobody yet"}</p>`:"")+
       (l&&!l.error&&canPick?`<div class="opsrow"><select class="field" id="opsWho" aria-label="Assign to">${s.assignsOthers?`<option value="">Nobody</option>`:""}${peopleOptions(who||s.login)}</select>
         <button class="btn primary" id="opsAssign"${starting?" disabled":""}>${starting===t.id?"Assigning…":"Assign"}</button></div>`:"")+
@@ -168,6 +188,26 @@ function fillDrawer(dr){
   const go=box.querySelector("#opsStart"); if(go)go.onclick=()=>startInOps(t.id,box.querySelector("#opsRepo").value,box.querySelector("#opsWho").value);
   const as=box.querySelector("#opsAssign"); if(as)as.onclick=()=>assignLinked(t.id,box.querySelector("#opsWho").value||null);
   const rl=box.querySelector("#opsRelease"); if(rl)rl.onclick=()=>assignLinked(t.id,null);
+  const cp=box.querySelector("#opsCopyBranch"); if(cp)cp.onclick=()=>{
+    const b=branchFor(t);
+    (navigator.clipboard?navigator.clipboard.writeText(b):Promise.reject(new Error("no clipboard")))
+      .then(()=>toast(`Copied ${b}`),()=>toast(`Couldn't copy. The branch name is ${b}`));
+  };
+}
+// The three moves left for a linked task, the one that comes next marked.
+function moveSteps(t){
+  const ref=linkOf(t), l=GH_LIVE[t.id], ok=l&&!l.error; if(!ref)return "";
+  if(ok&&l.column==="Done")return "";
+  // When GitHub can't be read, the steps still stand; only which one is next is unknown.
+  const repo=ref.split("#")[0], n=ref.split("#")[1], p=ok?l.progress||0:-1, done=false;
+  const steps=[
+    [p>=20,`<b>In progress</b>: create a branch in ${esc(repo)} named <code>task/${esc(n)}/…</code>, e.g. <code>${esc(branchFor(t))}</code> <button type="button" class="btn ghost opscopy" id="opsCopyBranch">Copy</button>`],
+    [p>=60,`<b>${esc(REVIEW_COL)}</b>: open a pull request from that branch.`],
+    [done,`<b>Done</b>: merge the pull request, or close the issue.`],
+  ];
+  const next=p<0?-1:steps.findIndex(s=>!s[0]);
+  return `<p>The column follows GitHub, so it can't be dragged. To move it:</p><ol class="opssteps">${steps.map(([ok,html],i)=>`<li class="${ok&&p>=0?"ok":i===next?"next":""}">${html}</li>`).join("")}</ol>`+
+    `<p class="small muted">The board checks GitHub about once a minute. A branch with any other name doesn't count.</p>`;
 }
 async function startInOps(id,repo,to){
   if(!byId(id)||starting)return;
