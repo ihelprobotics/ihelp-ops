@@ -211,6 +211,16 @@ label.f .field{color:var(--ink)}
 .opssteps code{font-size:12.5px;background:var(--wash2,rgba(0,0,0,.05));padding:1px 4px;border-radius:4px;word-break:break-all}
 .opssteps .opscopy{padding:2px 8px;font-size:12px;margin-left:4px;min-height:0}
 .tcard.linked{cursor:grab}
+.opsrules{margin:0 0 24px}
+.opsrules summary{cursor:pointer;display:flex;align-items:baseline;gap:10px;list-style:none}
+.opsrules summary::-webkit-details-marker{display:none}
+.opsrules summary::before{content:"▸";color:var(--gold-ink)}
+.opsrules[open] summary::before{content:"▾"}
+.opsrules summary .h3{margin:0}
+.opsrules-list{margin:12px 0 0;padding-left:22px;font-size:14px;line-height:1.55}
+.opsrules-list>li{margin:0 0 10px}
+.opsrules-list ul{margin:6px 0;padding-left:18px}
+.opsrules-list code{font-size:12.5px;background:var(--wash);padding:1px 5px;border-radius:4px}
 /* SENTINEL presentation, held to the MITRA board's standard. Keeps SENTINEL's
    teal palette; takes MITRA's display face and fixes what SENTINEL's extra
    column, longer ids and extra filter did to the layout. */
@@ -842,6 +852,7 @@ function decorate(){
     el.dataset.ops="1"; const t=byId(el.dataset.id); el.disabled=true;
     el.title=t&&linkOf(t)?"Follows "+linkOf(t)+". Open the task to reassign it.":"Open the task to assign it. Assigning opens its GitHub issue.";
   });
+  rulesOnOverview();
   const dr=document.querySelector(".drawer");
   if(dr&&!dr.querySelector(".opsbox"))fillDrawer(dr);
   // The filters changed under an open Make issues panel: recount. Guarded by
@@ -1024,6 +1035,59 @@ async function runBulk(ids,repo){
   BULK.running=false; BULK.done=true; renderBulk();
   toast(`${BULK.ok} ${BULK.ok===1?"issue":"issues"} opened.`);
   if(!busy())renderMain(); poll(); pollLive();
+}
+/* ---------- How to use this board (top of the Overview) ---------- */
+// Built from the same settings the board runs on — the review column's name,
+// the plan's repository — so the rules can't say something the board doesn't do.
+const IS_SENTINEL=/\/sentinel$/.test(OPS_API);
+function rulesHTML(){
+  const home=START&&START.home, code=s=>`<code>${esc(s)}</code>`;
+  const repoLine=home?`Use ${code(home)}, where the app is built. It is picked for you.`:`Pick the repository the work will be done in.`;
+  const notPlanned=IS_SENTINEL?"":` Closing it as "not planned" moves it to Deferred (v1.1).`;
+  const rules=[
+    [`Plan freely until a task starts.`,
+     `A card without a #number is still a plan. Edit it, drag it between columns or delete it. Every change saves for the whole team straight away.`+
+     (IS_SENTINEL?` "Existing" is a planning column: the code is there but nobody has shown it working live. Start the task to prove it.`:"")],
+    [`Start a task by assigning it.`,
+     `Open the task, then under <b>Assign and start in Ops</b> pick the person and the repository and press <b>Open the issue</b>. That opens a GitHub issue with them on it, and the card shows its number. ${repoLine} `+
+     `Only a lead, the CTO or the founder can give a task to someone else; anyone can take one for themselves. Your GitHub login must be linked to your Ops account.`+
+     (START&&START.canPlan?` <b>Make issues</b>, in the top bar, does this for every planned task in the current filter.`:"")],
+    [`From then on, GitHub moves the card.`,
+     `A started card can't be dragged, have its status typed or be deleted. Do the work and it follows:`+
+     `<ul><li><b>In progress</b>: push a branch named ${code("task/<issue number>/<short-name>")} to the issue's repository.</li>`+
+     `<li><b>${esc(REVIEW_COL)}</b>: open a pull request from that branch.</li>`+
+     `<li><b>Done</b>: merge the pull request, or close the issue.${notPlanned}</li></ul>`+
+     `The board checks GitHub about once a minute.`],
+    [`Name the branch by the issue number, not the task ID.`,
+     `If a task's issue is #2, its branch is ${code("task/2/…")}, not ${code(IS_SENTINEL?"task/SEN-001/…":"task/F-02/…")}. The task's drawer shows the exact name with a Copy button. A branch only counts once it is pushed to GitHub, in the same repository as the issue.`],
+    [`Open the issue in the right repository the first time.`,
+     `Moving an issue to another repository gives it a new number, and the board link and branch name then have to be fixed by hand.`],
+    [`Mark your commits.`,
+     `End a commit message with ${code("iHelp-Task: #<issue number>")} and the task's page in Ops lists that commit as evidence.`],
+    [`Change who has it from the drawer.`,
+     `Assigning there, or on the GitHub issue, changes the card. If you can't do a task you hold, press <b>Hand it back</b>.`],
+    IS_SENTINEL?[`Done means proven.`,
+     `A task is done only when its "Done when" test is met with evidence. Put that evidence in the pull request before it is merged.`]:null,
+    [`Done cards link to the work.`,
+     `<b>View commit</b> and <b>View PR</b> on a Done card open what finished it on GitHub.`],
+    [`Agents.`,
+     `You can talk to an agent about any task from its page in Ops. Putting an agent to work on a task is coming soon.`],
+  ].filter(Boolean);
+  return `<summary><span class="h3">How to use this board</span><span class="small muted">${rules.length} rules</span></summary>
+    <ol class="opsrules-list">${rules.map(([h,b])=>`<li><b>${h}</b> ${b}</li>`).join("")}</ol>`;
+}
+function rulesOnOverview(){
+  if(ui.tab!=="overview")return;
+  const m=document.getElementById("main"), lede=m&&m.querySelector(".lede");
+  if(!lede)return;
+  const want=rulesHTML(), have=m.querySelector(".opsrules");
+  if(have){if(have.dataset.v!==want){have.dataset.v=want;have.innerHTML=want;}return;}
+  const d=document.createElement("details"); d.className="card pad opsrules"; d.dataset.v=want; d.innerHTML=want;
+  // Open until the reader closes it; remembered in this browser only.
+  let shut=false; try{shut=localStorage.getItem("ops-rules-shut")==="1";}catch(e){}
+  d.open=!shut;
+  d.ontoggle=()=>{try{localStorage.setItem("ops-rules-shut",d.open?"0":"1");}catch(e){}};
+  lede.insertAdjacentElement("afterend",d);
 }
 
 /* ---------- boot ---------- */

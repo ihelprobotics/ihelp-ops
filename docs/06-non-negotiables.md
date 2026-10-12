@@ -27,7 +27,10 @@ A linked card that someone tries to drag says what would move it instead
 drawer name the next step in GitHub — a branch named `task/<n>/…` for In
 progress, a pull request for review, a merge or a closed issue for Done
 (`moveHow` and `moveSteps` in `plan-boards/ops.js`). They only put the ladder in
-`app/lib/progress.ts` into words; they never set a column.
+`app/lib/progress.ts` into words; they never set a column. The same rules, and
+the rest of how to use a build board, open the board's Overview (`rulesHTML`),
+built from the board's own settings so they can't describe a board that
+behaves differently.
 
 Assignment follows the same line (2026-10-11). A planned row carries no typed
 assignee: assigning it opens its issue with that person on it, under the rules

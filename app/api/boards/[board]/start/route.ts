@@ -63,6 +63,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     return NextResponse.json({
       repos: home ? [home, ...list.filter((r) => r !== home)] : list,
       suggested: home ?? list.find((r) => r.toLowerCase().includes(key)) ?? process.env.OPS_REPO ?? list[0] ?? null,
+      home: board.repo ?? null,
       homeMissing: board.repo && !home
         ? `${board.name}'s repository, ${board.repo}, isn't in the list GitHub returns for this token. It is archived, renamed, or the token can't see it. Pick the right one below, or check the token's repository access.`
         : null,

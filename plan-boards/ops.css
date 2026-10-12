@@ -22,3 +22,13 @@
 .opssteps code{font-size:12.5px;background:var(--wash2,rgba(0,0,0,.05));padding:1px 4px;border-radius:4px;word-break:break-all}
 .opssteps .opscopy{padding:2px 8px;font-size:12px;margin-left:4px;min-height:0}
 .tcard.linked{cursor:grab}
+.opsrules{margin:0 0 24px}
+.opsrules summary{cursor:pointer;display:flex;align-items:baseline;gap:10px;list-style:none}
+.opsrules summary::-webkit-details-marker{display:none}
+.opsrules summary::before{content:"▸";color:var(--gold-ink)}
+.opsrules[open] summary::before{content:"▾"}
+.opsrules summary .h3{margin:0}
+.opsrules-list{margin:12px 0 0;padding-left:22px;font-size:14px;line-height:1.55}
+.opsrules-list>li{margin:0 0 10px}
+.opsrules-list ul{margin:6px 0;padding-left:18px}
+.opsrules-list code{font-size:12.5px;background:var(--wash);padding:1px 5px;border-radius:4px}
