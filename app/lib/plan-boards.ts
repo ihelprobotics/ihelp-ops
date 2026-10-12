@@ -22,6 +22,11 @@ export type PlanBoard = {
    * status it had, and its drawer shows the stage.
    */
   columnFor: (progress: number, closed: Closed) => string | null;
+  /**
+   * The repository the plan is built in (owner/name). Starting a task offers it
+   * first; another repository can still be picked for work that belongs there.
+   */
+  repo?: string;
 };
 
 const ladder = (review: string, notPlanned: string | null) => (progress: number, closed: Closed) => {
@@ -33,7 +38,10 @@ const ladder = (review: string, notPlanned: string | null) => (progress: number,
 };
 
 export const PLAN_BOARDS: Record<string, PlanBoard> = {
-  mitra: { key: "mitra", name: "MITRA", title: "MITRA app build", columnFor: ladder("In review", "Deferred (v1.1)") },
+  mitra: {
+    key: "mitra", name: "MITRA", title: "MITRA app build", columnFor: ladder("In review", "Deferred (v1.1)"),
+    repo: "ihelprobotics/mitra-healthtech_app",
+  },
   // SENTINEL's plan has no deferred column, and "Needs verification" is its
   // word for a change waiting on review.
   sentinel: { key: "sentinel", name: "SENTINEL", title: "SENTINEL elderly-care build", columnFor: ladder("Needs verification", null) },

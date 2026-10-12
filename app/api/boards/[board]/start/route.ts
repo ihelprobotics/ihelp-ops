@@ -44,7 +44,8 @@ export async function GET(_req: Request, { params }: Ctx) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   const { board: key } = await params;
-  if (!planBoard(key)) return NextResponse.json({ error: unknownBoard(key) }, { status: 404 });
+  const board = planBoard(key);
+  if (!board) return NextResponse.json({ error: unknownBoard(key) }, { status: 404 });
   const role = session.user.role ?? "member";
   try {
     const [list, people] = await Promise.all([
@@ -56,9 +57,15 @@ export async function GET(_req: Request, { params }: Ctx) {
          where active and gh_login is not null
          order by name nulls last, gh_login`,
     ]);
+    // The plan's own repository comes first. If GitHub doesn't list it, say so
+    // rather than quietly suggesting a different one.
+    const home = board.repo ? list.find((r) => r.toLowerCase() === board.repo!.toLowerCase()) ?? null : null;
     return NextResponse.json({
-      repos: list,
-      suggested: list.find((r) => r.toLowerCase().includes(key)) ?? process.env.OPS_REPO ?? list[0] ?? null,
+      repos: home ? [home, ...list.filter((r) => r !== home)] : list,
+      suggested: home ?? list.find((r) => r.toLowerCase().includes(key)) ?? process.env.OPS_REPO ?? list[0] ?? null,
+      homeMissing: board.repo && !home
+        ? `${board.name}'s repository, ${board.repo}, isn't in the list GitHub returns for this token. It is archived, renamed, or the token can't see it. Pick the right one below, or check the token's repository access.`
+        : null,
       canStart: !!session.user.login,
       why: session.user.login ? "" : NO_LOGIN,
       login: session.user.login ?? null,

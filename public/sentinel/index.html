@@ -923,6 +923,7 @@ function fillDrawer(dr){
     box.innerHTML=`<div class="opshead"><b>Assign and start in Ops</b></div>
       <p>Opens a GitHub issue from this task${s.assignsOthers?", with the person you pick on it":", with you on it"}. From then on it shows on the Ops board, an agent can be put on it, and its column here follows the issue.</p>
       ${!START?`<p class="muted">Checking what you can start…</p>`:!s.canStart?`<p class="opserr">${esc(s.why||"You can't start tasks.")}</p>`:writeMode!=="live"?`<p class="opserr">The shared board isn't reachable, so this can't be linked. Reload to try again.</p>`:""}
+      ${s.homeMissing?`<p class="opserr">${esc(s.homeMissing)}</p>`:""}
       <div class="opsrow"><select class="field" id="opsWho" aria-label="Assign to"${can?"":" disabled"}>${peopleOptions(s.login)}<option value="">Nobody yet</option></select></div>
       <div class="opsrow"><select class="field" id="opsRepo" aria-label="Repository"${can?"":" disabled"}>${(s.repos||[]).map(r=>`<option${r===s.suggested?" selected":""}>${esc(r)}</option>`).join("")}</select>
       <button class="btn primary" id="opsStart"${can&&!starting?"":" disabled"}>${starting===t.id?"Starting…":"Open the issue"}</button></div>
