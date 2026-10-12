@@ -133,9 +133,9 @@ export default async function NewTaskPage() {
               <div className="row">
                 <span className="when">Or</span>
                 <span>
-                  Press <strong>Run</strong> on an agent and it works the task in
+                  Put an agent on it — coming soon. It will work the task in
                   GitHub Actions, reading the description above as its entire
-                  brief, and opens a pull request for a human to review.
+                  brief, and open a pull request for a human to review.
                 </span>
               </div>
             </div>

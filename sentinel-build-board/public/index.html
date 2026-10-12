@@ -199,6 +199,10 @@ label.f .field{color:var(--ink)}
 .opserr{color:var(--s-block)}
 .opsbulk select{flex:0 1 240px;min-width:0}
 .opsbulk>span:first-child{flex:1 1 320px}
+.opsdone{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.opsdone .btn.opsgo{font-size:12px;padding:4px 9px;text-decoration:none;cursor:pointer}
+.opsdone .btn.opsgo[disabled]{opacity:.45;cursor:not-allowed}
+.opsdone-why{flex-basis:100%;font-size:11.5px;color:var(--muted,#6b6b6b);line-height:1.35}
 /* SENTINEL presentation, held to the MITRA board's standard. Keeps SENTINEL's
    teal palette; takes MITRA's display face and fixes what SENTINEL's extra
    column, longer ids and extra filter did to the layout. */

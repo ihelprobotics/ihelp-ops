@@ -7,12 +7,12 @@
 // that person on it. A typed name on a planning row would be a second answer to
 // "who has this" next to GitHub's, so the assignee field is not typed here.
 const ISSUE=/^([A-Za-z0-9._-]+\/[A-Za-z0-9._-]+)#(\d+)$/;
-let LIVE={}, liveErr="", START=null, startErr={}, starting=null, BULK=null;
+let GH_LIVE={}, liveErr="", START=null, startErr={}, starting=null, BULK=null;
 const linkOf=t=>t&&ISSUE.test(t.issue||"")?t.issue:null;
 const pendingOf=t=>!!(t&&/^pending:/.test(t.issue||""));
 function applyLive(){
   S.tasks.forEach(t=>{
-    const l=LIVE[t.id]; if(!linkOf(t)||!l)return;
+    const l=GH_LIVE[t.id]; if(!linkOf(t)||!l)return;
     const b=B&&B.t.get(t.id);
     if(l.column){t.status=l.column;if(b)b.status=l.column;}
     if(l.assignee!==undefined){const a=l.assignee||"";t.assignee=a;if(b)b.assignee=a;}
@@ -29,9 +29,11 @@ function revertLinked(){
 }
 async function pollLive(){
   clearTimeout(pollLive.t);
-  try{const r=await api("GET",null,"",OPS_API+"/live");LIVE=r.live||{};liveErr="";}
+  try{const r=await api("GET",null,"",OPS_API+"/live");GH_LIVE=r.live||{};liveErr="";}
   catch(e){liveErr=e.message;}
-  const sig=()=>S.tasks.map(t=>t.status+"/"+t.assignee).join("|"), before=sig();
+  // The Done buttons change when the merge record or a read error arrives,
+  // even if no column moves, so those are part of what triggers a redraw.
+  const sig=()=>S.tasks.map(t=>{const l=GH_LIVE[t.id];return t.status+"/"+t.assignee+"/"+(l?(l.merged&&l.merged.pr)||l.error||"-":"")}).join("|")+liveErr, before=sig();
   applyLive();
   if(sig()!==before){if(busy())renderLater=true;else renderMain();}
   refreshDrawer();
@@ -46,7 +48,7 @@ async function opsBoot(){
 function liveTag(t){
   if(pendingOf(t))return `<span class="tag ops">Starting…</span>`;
   const ref=linkOf(t); if(!ref)return "";
-  const l=LIVE[t.id], n="#"+ref.split("#")[1];
+  const l=GH_LIVE[t.id], n="#"+ref.split("#")[1];
   return `<span class="tag ops" title="${esc(ref)}">${esc(n)}${l&&l.progress!=null?` · ${l.progress}%`:""}</span>`;
 }
 function decorate(){
@@ -62,7 +64,9 @@ function decorate(){
     const add=bar.querySelector("#addBtn"); bar.insertBefore(b,add||null);
   }
   document.querySelectorAll(".tcard[data-id]:not([data-ops])").forEach(c=>{
-    c.dataset.ops="1"; const t=byId(c.dataset.id); if(!t||(!linkOf(t)&&!pendingOf(t)))return;
+    c.dataset.ops="1"; const t=byId(c.dataset.id); if(!t)return;
+    if(t.status==="Done")doneLinks(c,t);
+    if(!linkOf(t)&&!pendingOf(t))return;
     c.setAttribute("draggable","false"); c.classList.add("linked");
     const m=c.querySelector(".meta"); if(m)m.insertAdjacentHTML("afterbegin",liveTag(t));
   });
@@ -80,6 +84,39 @@ function decorate(){
   // the count, so this observer callback does not feed itself.
   if(BULK&&!BULK.running&&!BULK.done&&bulkTargets().length!==BULK.shown)renderBulk();
 }
+// A Done card links to the work that finished it: the merge commit and the
+// pull request, from the merge Ops recorded. Ops never commits or pushes from
+// the web (docs/06), so these open GitHub. When there is nothing to open, the
+// buttons stay visible and say why.
+function doneWhy(t){
+  const ref=linkOf(t), l=GH_LIVE[t.id];
+  if(!ref)return "This task was never started in Ops, so no commit or pull request is on record for it.";
+  if(!l)return liveErr?"GitHub can't be read right now: "+liveErr:"Reading from GitHub…";
+  if(l.error)return "GitHub can't be read for "+ref+": "+l.error;
+  if(!l.merged)return "No merged pull request is on record for "+ref+". It was closed without one, or merged before Ops received GitHub's events.";
+  return "";
+}
+// The same reasons, short enough to sit under every Done card.
+function doneShort(t){
+  const ref=linkOf(t), l=GH_LIVE[t.id];
+  if(!ref)return "Not started in Ops, so no commit or PR is on record.";
+  if(!l)return liveErr?"GitHub can't be read right now.":"Reading from GitHub…";
+  if(l.error)return "GitHub can't be read for "+ref+".";
+  return "No merged PR on record for "+ref+".";
+}
+function doneLinks(c,t){
+  const l=GH_LIVE[t.id], m=l&&!l.error&&l.merged, why=doneWhy(t), repo=(linkOf(t)||"").split("#")[0];
+  const commit=m&&m.commit?`https://github.com/${repo}/commit/${m.commit}`:null;
+  const btn=(href,label,miss)=>href?`<a class="btn opsgo" href="${esc(href)}" target="_blank" rel="noopener">${label}</a>`
+    :`<button type="button" class="btn opsgo" disabled title="${esc(miss)}">${label}</button>`;
+  const box=document.createElement("div"); box.className="opsdone";
+  box.innerHTML=btn(commit,"View commit",why||"The merge is on record but GitHub did not say which commit it made.")+btn(m?m.pr:null,"View PR",why)+
+    (why?`<span class="opsdone-why" title="${esc(why)}">${esc(doneShort(t))}</span>`:"");
+  // Opening a link must not also open the card's drawer, and Enter on a link
+  // must not be swallowed by the card's own keyboard handler.
+  box.onclick=e=>e.stopPropagation(); box.onkeydown=e=>e.stopPropagation();
+  c.appendChild(box);
+}
 function refreshDrawer(){const b=document.querySelector(".drawer .opsbox");if(b){b.remove();decorate();}}
 function ghUrl(ref){const m=ISSUE.exec(ref);return m?`https://github.com/${m[1]}/issues/${m[2]}`:"#";}
 function opsHref(ref){const m=ISSUE.exec(ref);return m?`/task/${m[1]}/${m[2]}`:"/";}
@@ -93,7 +130,7 @@ function fillDrawer(dr){
   const t=byId(ui.open); if(!t)return;
   const title=dr.querySelector(".dr-title"); if(!title)return;
   const box=document.createElement("div"); box.className="opsbox";
-  const ref=linkOf(t), l=LIVE[t.id], s=START||{repos:[],people:[]}, err=startErr[t.id];
+  const ref=linkOf(t), l=GH_LIVE[t.id], s=START||{repos:[],people:[]}, err=startErr[t.id];
   const asg=dr.querySelector("[data-k=assignee]");
   if(asg&&writeMode==="live"){asg.disabled=true;asg.title=ref?"Follows the GitHub issue. Reassign it below.":"Assign it below. Assigning opens its GitHub issue.";}
   if(ref||pendingOf(t)){
@@ -112,6 +149,7 @@ function fillDrawer(dr){
         <button class="btn primary" id="opsAssign"${starting?" disabled":""}>${starting===t.id?"Assigning…":"Assign"}</button></div>`:"")+
       (l&&!l.error&&mine&&!s.assignsOthers?`<div class="opsrow"><button class="btn" id="opsRelease">Hand it back</button></div>`:"")+
       (err?`<p class="opserr">${esc(err)}</p>`:"")+
+      (l&&!l.error&&l.merged?`<p><b>Merged:</b> <a href="${esc(l.merged.pr)}" target="_blank" rel="noopener">pull request</a>${l.merged.commit?` · <a href="https://github.com/${esc(ref.split("#")[0])}/commit/${esc(l.merged.commit)}" target="_blank" rel="noopener">commit ${esc(l.merged.commit.slice(0,7))}</a>`:""}</p>`:"")+
       `<p class="small"><a href="${esc(opsHref(ref))}">Open the task in Ops</a> to put an agent on it or see the evidence. · <a href="${esc(ghUrl(ref))}" target="_blank" rel="noopener">View on GitHub</a></p>`;
   }else if(pendingOf(t)){
     box.innerHTML=`<div class="opshead"><b>Being started in Ops…</b></div><p class="muted">The GitHub issue is being opened. This updates in a moment.</p>`;

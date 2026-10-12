@@ -98,11 +98,22 @@ export const BRIEF_LIMIT = 2000;
  * `strict: false`, so a `{ok: true} | {ok: false, why}` union does not narrow
  * on `!result.ok` and every caller would need a cast to read the reason.
  */
+/**
+ * Whether agents can be run at all, by anyone. Off for now (2026-10-12): every
+ * Run button says it is coming soon, and both run routes refuse. Talking to an
+ * agent on a task is not affected. Turn this on and every gate below applies
+ * exactly as before.
+ */
+export const AGENT_RUNS_OPEN = false;
+export const RUNS_COMING_SOON =
+  "Running agents is coming soon. You can talk to any agent about a task now; putting one to work on it is switched off until then.";
+
 export function canDispatch(
   agent: string,
   who: { role?: string | null; tier?: string | null } | null
 ): { ok: boolean; why: string } {
   if (!who) return { ok: false, why: "Sign in to dispatch an agent." };
+  if (!AGENT_RUNS_OPEN) return { ok: false, why: RUNS_COMING_SOON };
 
   if (HUMAN_OWNER_ONLY.includes(agent)) {
     return {

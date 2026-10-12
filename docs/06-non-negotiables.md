@@ -39,6 +39,13 @@ same rows **without sign-in**: anyone with the link can read and edit the plan,
 including any names typed on planning rows. They show no live GitHub status and
 cannot start a task; a linked row there is marked as following its issue in Ops.
 
+A card in a plan's Done column carries **View commit** and **View PR**
+(2026-10-12), opened from the `pr_merged` event Ops recorded for its issue.
+They were asked for as Commit and Push buttons; they link instead, because a
+Done task is already merged and the web does not commit or push (below). With
+nothing on record — never started in Ops, or merged before the webhook — the
+buttons stay visible, disabled, and say why.
+
 **Chat between people.** Discord does DMs, presence, threads, mobile and
 notifications properly. Build task comments that mirror to GitHub issue
 comments. Ingest Discord *channels and threads* for the record — **never DMs.**
@@ -99,6 +106,10 @@ manager files. Enforced in row-level security, not in a guideline.
 **1:1 visibility:** the subject always; the author; the CTO reads all. The
 delivery manager reads only what they wrote. Reads by anyone who is neither
 author nor subject are logged, and the subject can see that log.
+
+**Agent runs are switched off for everyone for now** (2026-10-12,
+`AGENT_RUNS_OPEN` in `app/lib/agents.ts`). Every Run button says it is coming
+soon and both run routes refuse; talking to an agent on a task is unchanged.
 
 **Draft and advisory agents are never run from the platform.** Deployer, Cloud,
 Social, Outreach, Lead Gen. Their human owner runs them. Neither Run now nor

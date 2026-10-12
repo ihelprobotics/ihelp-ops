@@ -10,7 +10,7 @@
 // Every tile can be talked to. What a tile's last line tells you is whether you
 // can also run it, which is the one thing tiers and the draft rule gate.
 
-import { AGENTS, DRAFT_AGENTS, canDispatch } from "@/app/lib/agents";
+import { AGENTS, DRAFT_AGENTS, AGENT_RUNS_OPEN, canDispatch } from "@/app/lib/agents";
 import type { Me } from "./dispatch";
 
 export default function AgentGrid({
@@ -42,7 +42,9 @@ export default function AgentGrid({
     <div className="agrid" role="radiogroup" aria-label="Agent">
       {AGENTS.map((a) => {
         const d = canDispatch(a.id, me);
-        const status = !me
+        const status = !AGENT_RUNS_OPEN
+          ? "Talk · running coming soon"
+          : !me
           ? "Sign in to run"
           : !me.login
           ? "Talk · link GitHub to run"
@@ -51,7 +53,7 @@ export default function AgentGrid({
           : `Talk · run unlocks at ${a.tier}`;
         return tile(a.id, a.name, a.blurb, status, !!me?.login && d.ok, d.ok ? undefined : d.why);
       })}
-      {DRAFT_AGENTS.map((a) => tile(a.id, a.name, a.blurb, "Talk · its human owner runs it", false, a.why))}
+      {DRAFT_AGENTS.map((a) => tile(a.id, a.name, a.blurb, AGENT_RUNS_OPEN ? "Talk · its human owner runs it" : "Talk · running coming soon", false, a.why))}
     </div>
   );
 }

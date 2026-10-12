@@ -12,13 +12,14 @@ import { sql } from "@/lib/db";
 // Graduated access and the draft-tier exclusion both come from the shared
 // roster in app/lib/agents.ts, so the board, the chat picker and this gate
 // cannot disagree about which agents exist.
-import { TIERS, HUMAN_OWNER_ONLY, BRIEF_LIMIT } from "@/app/lib/agents";
+import { TIERS, HUMAN_OWNER_ONLY, BRIEF_LIMIT, AGENT_RUNS_OPEN, RUNS_COMING_SOON } from "@/app/lib/agents";
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.login) {
     return NextResponse.json({ error: "Sign in with GitHub first." }, { status: 401 });
   }
+  if (!AGENT_RUNS_OPEN) return NextResponse.json({ error: RUNS_COMING_SOON }, { status: 403 });
 
   const { agent, repo, issue, brief } = await req.json();
   if (!agent || !repo || !issue) {

@@ -31,6 +31,12 @@ export type LiveTask = {
   column: string | null;
   /** GitHub login on the issue, null for nobody. Undefined when unread. */
   assignee?: string | null;
+  /**
+   * The pull request that merged this task and its merge commit, from the
+   * webhook's pr_merged record. null when none is on record — the issue was
+   * closed without one, or merged before the webhook was connected.
+   */
+  merged?: { pr: string; commit: string | null } | null;
   error: string | null;
 };
 
@@ -55,7 +61,7 @@ export async function liveStatus(board: PlanBoard, tasks: { id: string; issue?: 
   const names = [...new Set(linked.map((l) => l.repo))];
   const work = new Map(await Promise.all(names.map(async (r) => [r, await openWorkFor(r)] as const)));
 
-  const [events, commits] = await Promise.all([
+  const [events, commits, merges] = await Promise.all([
     sql<{ kind: string; repo: string; number: number }[]>`
       select kind, repo, number from gh_event
        where repo = any(${names}) and number = any(${linked.map((l) => l.number)})`,
@@ -63,6 +69,13 @@ export async function liveStatus(board: PlanBoard, tasks: { id: string; issue?: 
       select repo, issue_number, count(*)::int as n from commit_event
        where repo = any(${names}) and issue_number = any(${linked.map((l) => l.number)})
        group by repo, issue_number`,
+    sql<{ repo: string; number: number; pr: string | null; sha: string | null }[]>`
+      select repo, number,
+             payload->'pull_request'->>'html_url'         as pr,
+             payload->'pull_request'->>'merge_commit_sha' as sha
+        from gh_event
+       where kind = 'pr_merged' and repo = any(${names}) and number = any(${linked.map((l) => l.number)})
+       order by occurred_at desc`,
   ]);
 
   await Promise.all(
@@ -101,6 +114,10 @@ export async function liveStatus(board: PlanBoard, tasks: { id: string; issue?: 
         stage: closed === "not_planned" ? "Closed as not planned" : closed && progress < STAGE.merged ? "Closed" : stageLabel(progress),
         column: board.columnFor(progress, closed),
         assignee: issue.assignees?.[0]?.login ?? issue.assignee?.login ?? null,
+        merged: (() => {
+          const m = merges.find((x) => x.repo === repo && x.number === number && x.pr);
+          return m ? { pr: m.pr!, commit: m.sha } : null;
+        })(),
         error: null,
       };
     })

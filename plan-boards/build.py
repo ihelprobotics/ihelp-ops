@@ -12,7 +12,7 @@ syncs through /api/boards/<board>/board and can start tasks as GitHub issues
 (ops.js). The standalone page syncs through its own /api/board — same store,
 no sign-in — and only marks started tasks (standalone.js).
 """
-import pathlib, sys
+import pathlib, re, subprocess, sys, tempfile
 
 HERE = pathlib.Path(__file__).parent
 OPS = HERE.parent
@@ -65,6 +65,24 @@ def replacements(board, api_js, extra_js, extra_css, status_line):
     ]
 
 
+def check_scripts(key, html):
+    """Refuses a page whose script does not parse.
+
+    The page is one script: a name the added code declares twice — SENTINEL's
+    own `LIVE` against ops.js's, 2026-10-12 — is a SyntaxError that stops the
+    whole board, and the browser shows a blank page with nothing in the console
+    unless you were watching when it loaded.
+    """
+    for i, js in enumerate(re.findall(r'<script(?![^>]*application/json)[^>]*>(.*?)</script>', html, re.S)):
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as f:
+            f.write(js)
+        r = subprocess.run(["node", "--check", f.name], capture_output=True, text=True)
+        pathlib.Path(f.name).unlink()
+        if r.returncode:
+            err = " | ".join(l.strip() for l in r.stderr.splitlines() if l.strip() and not l.strip().startswith("at "))
+            raise SystemExit(f"{key}: script {i} of the built page does not parse, so the board would load blank. Nothing was written. {err}")
+
+
 def build(key, standalone):
     board = BOARDS[key]
     if standalone:
@@ -95,6 +113,7 @@ def build(key, standalone):
         if html.count(old) != want:
             raise SystemExit(f"{key}: expected {want} match(es) for: {old[:70]!r} (found {html.count(old)})")
         html = html.replace(old, new)
+    check_scripts(key, html)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8", newline="\n")
     print("wrote", out, len(html), "bytes")
