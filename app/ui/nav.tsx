@@ -11,6 +11,12 @@ import { isAdmin, canPlan } from "@/app/lib/roles";
 
 const PAGES = [
   { href: "/", key: "board", label: "Board" },
+  // The build plans. Static pages rather than routes of this app (see
+  // next.config.mjs), so they are linked with a plain <a>: a client-side
+  // navigation would ask the router for a page it does not have.
+  { href: "/mitra", key: "mitra", label: "MITRA build" },
+  { href: "/sentinel", key: "sentinel", label: "SENTINEL build" },
+  { href: "/spatialcast", key: "spatialcast", label: "SpatialCast build" },
   { href: "/new", key: "new", label: "New task" },
   // The way in to a conversation. Before this existed the chat lived only in a
   // section of one task page, so unless you had already opened the right task
@@ -51,11 +57,15 @@ export default function Nav({ current, role }: { current: NavKey; role: string }
   );
   return (
     <nav className="nav">
-      {shown.map((p) => (
-        <Link key={p.key} href={p.href} className={p.key === current ? "on" : ""}>
-          {p.label}
-        </Link>
-      ))}
+      {shown.map((p) =>
+        p.key === "mitra" || p.key === "sentinel" || p.key === "spatialcast" ? (
+          <a key={p.key} href={p.href}>{p.label}</a>
+        ) : (
+          <Link key={p.key} href={p.href} className={p.key === current ? "on" : ""}>
+            {p.label}
+          </Link>
+        )
+      )}
     </nav>
   );
 }

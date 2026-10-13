@@ -79,7 +79,7 @@ for (const agent of HUMAN_OWNER_ONLY) {
 // chat exists for.
 const { isChatAgent } = await import("../app/lib/agents.ts");
 is("every dispatchable agent is chattable", TIERS.full.every(isChatAgent), true);
-is("a draft agent is not chattable", HUMAN_OWNER_ONLY.some(isChatAgent), false);
+is("a draft agent can be talked to, though never dispatched", HUMAN_OWNER_ONLY.every(isChatAgent), true);
 
 // =========================================================================
 console.log("\n— what the route does with a brief —");

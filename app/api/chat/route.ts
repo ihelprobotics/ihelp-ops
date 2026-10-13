@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "An empty message says nothing. Write something first." }, { status: 400 });
   }
   if (message.length > 8000) {
-    return Response.json({ error: "That message is too long for a conversation. If it is a specification, put it on the issue and press Run." }, { status: 400 });
+    return Response.json({ error: "That message is too long for a conversation. If it is a specification, put it on the issue and have the agent run on it." }, { status: 400 });
   }
 
   let found;

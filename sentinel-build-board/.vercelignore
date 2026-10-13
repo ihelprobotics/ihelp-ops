@@ -1,0 +1,4 @@
+# Only the page and its API function are deployed.
+SENTINEL elderly-care build board*.html
+drafts
+.env*

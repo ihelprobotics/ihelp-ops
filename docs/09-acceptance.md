@@ -45,7 +45,8 @@ Everything else in this product is in service of that sentence.
 
 ## Test 3 — The agent loop
 
-1. Select the task. Press Run on **Scribe**.
+1. Open the task. Pick **Scribe** in the agent grid, press **Have Scribe do
+   this**, then **Run in GitHub Actions**.
 2. `agent_run` gets a row: `status='running'`, your `requester_id`.
 3. Within a few minutes a pull request exists in the repo, labelled
    `agent-authored`, tagging you as owner.
@@ -57,6 +58,27 @@ Everything else in this product is in service of that sentence.
 
 **Fails if:** cost stays null (the callback is not wired), or tier gating is
 only visual.
+
+---
+
+## Test 3b — The agent loop, through the Claude API
+
+1. On the same kind of small, concrete task, pick **Scribe**, press **Have Scribe
+   do this**, then **Run now**.
+2. The run streams: the files it lists and reads, then what it writes, then the
+   commit. `agent_run` has a row at `status='running'` from the first second.
+3. A pull request opens on `agent/scribe/issue-<n>`, labelled `agent-authored`,
+   naming you as owner, saying nothing was tested, with `Platform run: \`<uuid>\``.
+4. The commit ends with `iHelp-Task: #<n>`, `commit_event` records it, and the
+   board moves the card to **In review** with nobody touching it.
+5. `agent_run` reaches `success` with `pr_url` and a non-zero `cost_usd`.
+6. `npm run test:direct` passes: unlinked, draft agent, locked tier, unconfigured
+   repository, bad brief and a third concurrent run are all refused before
+   anything reaches the model or GitHub.
+
+**Fails if:** the card does not move (the trailer or the branch name is wrong),
+the pull request claims anything was tested, or a refused request left an
+`agent_run` row.
 
 ---
 

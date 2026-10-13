@@ -67,9 +67,11 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'" + (DEV ? " 'unsafe-eval'" : ""),
-      "style-src 'self' 'unsafe-inline'",
+      // Google Fonts, for the build boards' typefaces (/mitra, /sentinel, /spatialcast). Stylesheets and
+      // font files only: neither can run code or send anything anywhere.
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com",
       // The browser talks only to us. Everything reaching GitHub, Supabase or
       // Resend happens on the server, with credentials the browser never sees.
       "connect-src 'self'",
@@ -91,6 +93,17 @@ const nextConfig = {
 
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+
+  // Each build board is one self-contained page, generated from the board's
+  // own HTML by plan-boards/build.py into public/<board>/. They are behind
+  // sign-in like everything else: the middleware matcher covers them.
+  async rewrites() {
+    return [
+      { source: "/mitra", destination: "/mitra/index.html" },
+      { source: "/sentinel", destination: "/sentinel/index.html" },
+      { source: "/spatialcast", destination: "/spatialcast/index.html" },
+    ];
   },
 };
 

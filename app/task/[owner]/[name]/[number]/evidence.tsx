@@ -107,8 +107,8 @@ export default function Evidence({ task }: { task: NonNullable<TaskDetail> }) {
         <div className="card">
           {task.runs.length === 0 ? (
             <p className="muted small" style={{ margin: 0 }}>
-              No agent has been dispatched against this task. Pick it on the board
-              and choose an agent.
+              No agent has run on this task yet. Choose one under Agents above
+              and press &ldquo;Have it do this&rdquo;.
             </p>
           ) : (
             task.runs.map((r: any) => (

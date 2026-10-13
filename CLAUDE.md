@@ -18,8 +18,9 @@ can inflate it. Every feature decision in this repo follows from that.
 ## Stack
 
 Next.js 15 App Router · TypeScript · Postgres on Supabase (`postgres`, the
-postgres.js driver) · NextAuth v5 with Google · deployed on Vercel. Agent
-execution happens in GitHub Actions, not here.
+postgres.js driver) · NextAuth v5 with Google · deployed on Vercel. Agents
+run in GitHub Actions or, from the task page, through the Claude API — both end
+in a branch and a pull request a human reviews (docs/01, Paths A and D).
 
 `DATABASE_URL` is the Supabase **transaction pooler** on port 6543, never the
 session pooler on 5432 and never the direct connection. The client sets

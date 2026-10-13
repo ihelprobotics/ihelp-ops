@@ -18,7 +18,7 @@ import { randomUUID } from "node:crypto";
 import { encode } from "@auth/core/jwt";
 
 const { sql, withUser } = await import("../lib/db.ts");
-const { AGENTS, TIERS, TIER_RANK, HUMAN_OWNER_ONLY,
+const { AGENTS, DRAFT_AGENTS, TIERS, TIER_RANK, HUMAN_OWNER_ONLY,
         CHAT_AGENTS, isChatAgent, costOf, CHAT_MODEL } = await import("../app/lib/agents.ts");
 
 const BASE = (process.env.PAGE_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -52,11 +52,12 @@ let fixtures = [];
 // =========================================================================
 console.log("\n— the roster —");
 // =========================================================================
-is("eight agents can be talked to", CHAT_AGENTS.length, 8);
-is("the picker and the board are the same list", CHAT_AGENTS, AGENTS.map((a) => a.id));
+is("thirteen agents can be talked to", CHAT_AGENTS.length, 13);
+is("the picker is the roster, then the draft agents", CHAT_AGENTS, [...AGENTS, ...DRAFT_AGENTS].map((a) => a.id));
 is("no agent is listed twice", new Set(CHAT_AGENTS).size, CHAT_AGENTS.length);
 is("an agent nobody defined is not one you can talk to", isChatAgent("ceo"), false);
-is("nor is a draft-tier agent the platform never dispatches", isChatAgent("deployer"), false);
+// Talking to a draft agent changes nothing; only running one is refused.
+is("a draft agent can be talked to", isChatAgent("deployer"), true);
 is("no roster agent is also human-owner-only",
    AGENTS.some((a) => HUMAN_OWNER_ONLY.includes(a.id)), false);
 
@@ -207,7 +208,8 @@ try {
 
   for (const [label, body, code, mention] of [
     ["an agent nobody defined is refused",  { ...ok, agent: "ceo" },        400, "is not an agent"],
-    ["a draft-tier agent too",              { ...ok, agent: "deployer" },   400, "is not an agent"],
+    // The draft agents are not here: since 2026-09-11 they can be talked to, and
+    // "a draft agent is chattable" in the roster section above is that rule.
     ["a task number that is not a number",  { ...ok, issue: "soon" },       400, "not a task number"],
     ["an empty message is refused",         { ...ok, message: "   " },      400, "says nothing"],
     ["and so is a specification",           { ...ok, message: "x".repeat(8001) }, 400, "too long"],

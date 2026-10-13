@@ -31,10 +31,17 @@ where a person types how far along they are.
 | Claude Code | The agents, defined by `.claude/agents/*.md` in the code repos | Already exists, already works in VS Code and Actions |
 | **This platform** | Front door and ledger: start work, see everything, manage people | The only part that does not exist |
 
-This platform executes no agents itself. It dispatches a GitHub Actions workflow
-which runs Claude Code headless on a throwaway VM. That single decision is why
-this is a two-week build instead of a six-month one: sandboxing, secrets and
-repo permissions stay inside GitHub, where they are already solved.
+The platform was built to execute no agents itself. It dispatches a GitHub
+Actions workflow which runs Claude Code headless on a throwaway VM. That single
+decision is why this was a two-week build instead of a six-month one: sandboxing,
+secrets and repo permissions stay inside GitHub, where they are already solved.
+
+Since 2026-09-11 it can also run an agent itself, from the task page, through
+the Claude API (Path D in `01-architecture.md`). That path is deliberately
+narrower — it reads and writes files through the GitHub API, cannot run
+anything, and cannot touch workflow files — and it ends the same way: a branch
+and a pull request that a human reviews. Neither path can put code on a
+protected branch without branch protection agreeing.
 
 ## Who uses it
 

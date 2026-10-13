@@ -2,16 +2,14 @@
 //
 // What this is, and what it deliberately is not.
 //
-// The agents that write code run in GitHub Actions — docs/01 put them there so
-// sandboxing, secrets and repository write access stay somewhere those problems
-// are already solved. That has not changed. This conversation runs in the
-// platform and is **read-only against the repository**: it can look at the
-// task, the comments, and the files, and it can think out loud with you. It
-// cannot commit, push, or open a pull request.
+// This conversation runs in the platform and is **read-only against the
+// repository**: it can look at the task, the comments, and the files, and it
+// can think out loud with you. It cannot commit, push, or open a pull request.
 //
-// When you want the code changed you press Run, and the existing workflow does
-// it — sandboxed, producing a pull request a human reviews. So the fast thing
-// stays cheap and the consequential thing stays evidenced.
+// When you want the code changed you press "Have <agent> do this", and a real
+// run does it — through the Claude API from the task page (Path D), or in
+// GitHub Actions (Path A) — ending in a pull request a human reviews. So the
+// fast thing stays cheap and the consequential thing stays evidenced.
 //
 // The agent is the same one. Its brief is read from .claude/agents/<name>.md in
 // the repository, which is the identical file the workflow hands to Claude Code
@@ -22,7 +20,7 @@
 import { sql } from "@/lib/db";
 import { ghFetch } from "@/app/lib/github";
 import { cached } from "@/app/lib/cache";
-
+import { HUMAN_OWNER_ONLY } from "@/app/lib/agents";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string; cost_usd?: string | null; created_at?: string };
 
@@ -36,8 +34,12 @@ export type ChatMessage = { role: "user" | "assistant"; content: string; cost_us
  * A missing brief is not fatal — a repository need not define every agent — but
  * it is said out loud in the system prompt rather than silently producing a
  * generic assistant wearing the agent's name.
+ *
+ * Exported because a run through the Claude API reads the same file, so the
+ * agent you talk to and the agent that writes the pull request hold the same
+ * standards.
  */
-async function brief(repo: string, agent: string): Promise<string | null> {
+export async function agentBrief(repo: string, agent: string): Promise<string | null> {
   return cached(`brief:${repo}:${agent}`, async () => {
     try {
       const { body } = await ghFetch(`/repos/${repo}/contents/.claude/agents/${agent}.md`);
@@ -80,7 +82,8 @@ async function task(repo: string, issue: number) {
  * gives it, where stopping with a clear question is a correct outcome.
  */
 export async function systemPrompt(repo: string, issue: number, agent: string, person: string) {
-  const [agentBrief, t] = await Promise.all([brief(repo, agent), task(repo, issue)]);
+  const [ownBrief, t] = await Promise.all([agentBrief(repo, agent), task(repo, issue)]);
+  const draft = HUMAN_OWNER_ONLY.includes(agent);
 
   const lines = [
     `You are the ${agent} agent for iHelp Robotics, talking with ${person} about ${repo}#${issue}.`,
@@ -88,9 +91,10 @@ export async function systemPrompt(repo: string, issue: number, agent: string, p
     "WHAT YOU CAN DO HERE",
     "You are in a conversation, not a work session. You can read, reason, explain,",
     "review, plan and disagree. You cannot edit files, commit, push, or open a pull",
-    "request from this conversation — none of those tools exist here. When the work",
-    "needs doing, say so plainly and tell them to press Run on your tile, which",
-    "dispatches you into GitHub Actions where you can actually change things.",
+    "request from this conversation — none of those tools exist here.",
+    draft
+      ? "You are a draft or advisory agent, so the platform never runs you. Draft what is needed here, in the conversation; your human owner decides what happens to it."
+      : "When the work needs doing, say so plainly and tell them to press \"Have this agent do this\" below the conversation, which starts a real run that can change files and opens a pull request.",
     "",
     "Never describe an edit as though you have made it. You have not.",
     "",
@@ -102,8 +106,8 @@ export async function systemPrompt(repo: string, issue: number, agent: string, p
     "",
   ];
 
-  if (agentBrief) {
-    lines.push("YOUR BRIEF — the same file the workflow gives you when you run for real:", "", agentBrief, "");
+  if (ownBrief) {
+    lines.push("YOUR BRIEF — the same file you are given when you run for real:", "", ownBrief, "");
   } else {
     lines.push(
       `This repository has no .claude/agents/${agent}.md, so you are working without`,

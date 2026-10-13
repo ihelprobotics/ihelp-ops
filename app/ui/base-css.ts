@@ -25,32 +25,33 @@
 //   Motion is 150ms and only on things you pressed, and it stops entirely when
 //   the reader has asked for less of it.
 //
-// The palette commits to light. This product had a dark terminal look; the
-// team asked for the opposite, so it is one well-made theme rather than two
-// half-made ones — every surface and every colour is painted explicitly.
+// The palette commits to light, and is the MITRA build board's: warm paper,
+// white panels, sand hairlines and a deep gold accent. Ops and the board are
+// one product to the people using them, so they are one palette — change a
+// colour here and in the board's :root together.
 
 export const BASE_CSS = `
   :root {
-    --ground:     #F5F5F7;
+    --ground:     #FBF8F2;
     --surface:    #FFFFFF;
-    --sunken:     #FAFAFA;
-    --line:       #E4E4E9;
-    --line-soft:  #EFEFF3;
+    --sunken:     #F4EFE5;
+    --line:       #E4DCCD;
+    --line-soft:  #EFE9DD;
 
-    --ink:        #1D1D1F;
-    --ink-2:      #6E6E73;
-    --ink-3:      #A0A0A6;
+    --ink:        #2A2620;
+    --ink-2:      #6B6458;
+    --ink-3:      #A39B8E;
 
-    /* Deep teal. The dark product was teal; this is the same idea grown up —
-       enough contrast to sit on white as a link, quiet enough not to shout. */
-    --accent:     #12736C;
-    --accent-ink: #0B534E;
-    --accent-bg:  #EAF4F2;
+    /* The board's gold ink. Dark enough to sit on white as a link and carry
+       white text on a button; the paler gold is reserved for marks. */
+    --accent:     #6E561C;
+    --accent-ink: #5A4616;
+    --accent-bg:  #F3EBD6;
 
-    --amber:      #8A5A12;
-    --amber-bg:   #FDF4E6;
-    --danger:     #B3261E;
-    --danger-bg:  #FCEEED;
+    --amber:      #9A5B13;
+    --amber-bg:   #FBEEDC;
+    --danger:     #A3432A;
+    --danger-bg:  #F6E6DF;
 
     --radius:     12px;
     --radius-sm:  9px;
@@ -106,7 +107,7 @@ export const BASE_CSS = `
   /* ---- segmented navigation ---------------------------------------- */
   .nav {
     display: inline-flex; gap: 2px; margin-top: 12px; padding: 2px;
-    background: rgba(118,118,128,.10); border-radius: 10px; max-width: 100%;
+    background: rgba(107,100,88,.10); border-radius: 10px; max-width: 100%;
     overflow-x: auto; scrollbar-width: none;
   }
   .nav::-webkit-scrollbar { display: none; }
@@ -166,7 +167,7 @@ export const BASE_CSS = `
   /* ---- badges ------------------------------------------------------ */
   .tag {
     display: inline-block; font-size: 12px; font-weight: 500; color: var(--ink-2);
-    background: rgba(118,118,128,.09); border-radius: 100px; padding: 2px 9px;
+    background: rgba(107,100,88,.09); border-radius: 100px; padding: 2px 9px;
     white-space: nowrap;
   }
   .tag.on { background: var(--accent-bg); color: var(--accent); }
@@ -219,11 +220,18 @@ export const BASE_CSS = `
   .notice { background: var(--amber-bg); color: var(--amber); }
   .error  { background: var(--danger-bg); color: var(--danger); }
   .ok     { background: var(--accent-bg); color: var(--accent-ink); }
+
+  /* Connect GitHub: the one action an unlinked account can't work without. */
+  .ghconnect {
+    display: inline-block; background: var(--accent); color: #fff; font-weight: 600;
+    font-size: 12px; padding: 4px 10px; border-radius: var(--radius-sm); text-decoration: none;
+  }
+  .ghconnect:hover { background: var(--accent-ink); color: #fff; }
   .notice code, .error code { font-family: var(--mono); font-size: 13px; }
 
   code {
     font-family: var(--mono); font-size: .89em;
-    background: rgba(118,118,128,.10); border-radius: 5px; padding: .1em .4em;
+    background: rgba(107,100,88,.10); border-radius: 5px; padding: .1em .4em;
   }
 
   /* ---- focus and motion -------------------------------------------- */
@@ -279,7 +287,7 @@ export const BASE_CSS = `
      accent-coloured side of the conversation disappears entirely. */
   .msg .body code { font-size: .88em; }
   .msg.user .body code { background: rgba(255,255,255,.22); color: #fff; }
-  .msg.assistant .body code { background: rgba(118,118,128,.13); }
+  .msg.assistant .body code { background: rgba(107,100,88,.13); }
   .msg .body strong { font-weight: 600; }
 
   .msg.user .body {
@@ -330,8 +338,47 @@ export const BASE_CSS = `
   .ask textarea { min-height: 46px; }
   .ask .go { flex: 0 0 auto; }
 
+  .dispatch-go { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .dispatch-live { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .dispatch-live .live { align-self: stretch; }
+
+  /* ---- choosing an agent --------------------------------------------
+     Every tile can be talked to; the last line says whether it can also be
+     run. A tile you cannot run is quieter, never hidden. */
+  .agrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .atile {
+    display: flex; flex-direction: column; gap: 2px; min-height: 44px; text-align: left;
+    font: inherit; color: inherit; cursor: pointer; padding: 9px 11px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .atile:hover:not(:disabled) { border-color: var(--ink-3); }
+  .atile.on { border-color: var(--accent); background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--accent); }
+  .atile b { font-size: 14px; font-weight: 600; }
+  .atile span { font-size: 12px; color: var(--ink-2); line-height: 1.35; }
+  .atile em { font-style: normal; font-size: 11px; font-weight: 500; color: var(--accent); margin-top: 3px; }
+  .atile.talk em { color: var(--ink-3); }
+  .atile:disabled { cursor: not-allowed; opacity: .6; }
+
+  /* ---- a run, watched ----------------------------------------------- */
+  .live {
+    display: flex; flex-direction: column; gap: 10px; padding: 14px;
+    border-radius: var(--radius-sm); background: var(--sunken); box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .live-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .live-log {
+    margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px;
+    max-height: 240px; overflow-y: auto; font-family: var(--mono); font-size: 12.5px;
+  }
+  .live-log li { color: var(--ink-2); overflow-wrap: anywhere; }
+  .live-log li.tool::before { content: "› "; color: var(--ink-3); }
+  .live-log li.failed, .live-log li.pending { color: var(--ink-3); }
+  .live .ok, .live .error { margin: 0; }
+  .live-said .body { font-size: 13.5px; margin-top: 6px; }
+
   @media (max-width: 640px) {
     .msg { max-width: 94%; }
     .msgs { max-height: 60vh; }
+    .dispatch-go { justify-content: stretch; }
   }
 `;

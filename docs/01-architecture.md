@@ -24,7 +24,10 @@
                           VM destroyed
 ```
 
-## Agent execution — the three paths
+## Agent execution — the four paths
+
+Agents are chosen on the task page, never on the board. The board shows tasks
+and their progress; the grid of agents sits beside the issue the agent will read.
 
 **Path A, dispatched from the platform.** `POST /api/agents/run` records a row
 in `agent_run`, then calls the GitHub workflow-dispatch API. The workflow
@@ -40,8 +43,8 @@ accountability. The hard record is the commit and the PR, which arrive through
 the signed webhook.
 
 **Path C, a conversation on the task page.** `POST /api/chat` calls Claude
-directly and streams the answer back as Server-Sent Events. This is the only
-place the platform calls a model itself, and it is narrow on purpose: the
+directly and streams the answer back as Server-Sent Events. It is narrow on
+purpose: the
 conversation can read the task, its comments and the agent's own brief, and it
 has **no tool that writes**. It cannot edit a file, commit, push or open a pull
 request, and the system prompt says so in those words — an agent that believes
@@ -50,14 +53,53 @@ believes it.
 
 So the fast thing stays cheap and the consequential thing stays evidenced.
 Asking the architect whether an approach is sound costs a cent and takes
-seconds; changing the code still goes through Path A, sandboxed, ending in a
-pull request a human reviews.
+seconds; changing the code still goes through a run — Path A or Path D — ending
+in a pull request a human reviews.
 
-**Path C can start Path A.** Having worked out what should change, you press
-"Have it do this" and the conversation becomes a real run. What it sends is a
-**brief** — one editable box, at most `BRIEF_LIMIT` characters, which arrives as
-a `brief` input on `agent-run.yml`, is appended to the agent's prompt, and is
-quoted in the pull request body so a reviewer can see what was asked for.
+**Path D, a run through the Claude API, from the task page.** Added 2026-09-11.
+`POST /api/agents/direct` applies exactly the gates Path A does — linked GitHub
+login, `canDispatch`, the draft-agent exclusion, the two-run limit — checks the
+issue is open, writes an `agent_run` row, and then runs the agent in the
+platform itself (`app/lib/direct-run.ts`) with Claude Opus 5, streaming each
+step back as Server-Sent Events.
+
+The agent gets four tools and nothing else: `list_files`, `read_file`,
+`write_file`, `delete_file` (`app/lib/workspace.ts`). They act on the repository
+at one commit, read through the GitHub API, and writes are staged in memory.
+When the agent stops, `app/lib/land.ts` turns what it wrote into one commit on
+`agent/<agent>/issue-<n>` — carrying the `iHelp-Task` trailer — and opens a pull
+request whose body carries `Platform run: \`<uuid>\``, the same three shapes
+`agent-run.yml` produces, so the webhook, progress and analytics cannot tell the
+paths apart. A branch an earlier run made is continued, and a branch that moved
+underneath the run is never overwritten.
+
+What it deliberately cannot do, and why each matters:
+
+- **Run anything.** No shell, no install, no tests. The pull request says so, and
+  CI on the pull request is the first time the code executes. Use Path A when
+  the work needs to be built or tested to be done well.
+- **Write a workflow file.** `.github/workflows/*` is refused. A workflow decides
+  what runs with the repository's secrets; changing one is a person's decision.
+- **Write back a file it only saw part of.** A read over 100,000 characters is cut
+  and says so, and that file is then refused on write — an agent that edits the
+  half it saw and writes it back deletes the other half.
+- **Outlive the function.** Vercel stops it at 300 seconds. The loop stops
+  starting turns at 200, aborts at 250, and lands what exists as a pull request
+  titled `[Unfinished]`, recorded as `failure`, rather than being killed with its
+  row stuck on `running`.
+
+A run that changes nothing comments on the issue and records `no_changes`, as
+the workflow does. A refusal from the model is retried server-side on the
+fallback Anthropic recommends for that category (`fallbacks: "default"`); if
+that also refuses, nothing is committed.
+
+**Path C can start Path A or Path D.** Having worked out what should change —
+or without talking at all — you press "Have it do this", optionally write a
+**brief**, and choose **Run now** (Path D) or **Run in GitHub Actions** (Path A).
+The brief is one editable box, at most `BRIEF_LIMIT` characters: on Path A it
+arrives as a `brief` input on `agent-run.yml` and is appended to the agent's
+prompt; on Path D it goes into the prompt directly. Either way it is quoted in
+the pull request body so a reviewer can see what was asked for.
 
 The box exists rather than the transcript being sent, and it matters why. The
 conversation is private and the run is public: the brief lands in the Actions
@@ -86,18 +128,21 @@ other way round:
   This is the one place the platform stores what somebody typed, and the reason
   it is allowed to is that nobody else can read it — the same trade
   `local_session` refuses to make, for the same reason.
-- **Tiers do not gate it.** `week1`, `week2` and `full` gate *dispatch*,
-  because a dispatched agent changes code. Talking changes nothing, so gating it
-  would only stop a new joiner learning what the architect thinks.
+- **Tiers do not gate it.** `week1`, `week2` and `full` gate *running*, by
+  either path, because a run changes code. Talking changes nothing, so gating it
+  would only stop a new joiner learning what the architect thinks. The draft and
+  advisory agents can be talked to for the same reason, and are never run.
 
-The one thing this path needs that the others do not is `ANTHROPIC_API_KEY` in
-the platform's own environment. The workflow has its own copy as a GitHub
-Actions secret; that copy is write-only and cannot be read back, so this is a
-second copy of the same key rather than a way to share one.
+Paths C and D need `ANTHROPIC_API_KEY` in the platform's own environment. The
+workflow has its own copy as a GitHub Actions secret; that copy is write-only
+and cannot be read back, so this is a second copy of the same key rather than a
+way to share one. Path D also needs `GH_DISPATCH_TOKEN` to hold Contents: write
+and Pull requests: write (and Issues: write for its label and its no-change
+comment) on every repository it runs in.
 
-All three paths read the same agent definitions from the code repo — Path A and
-B by checking it out, Path C by fetching `.claude/agents/<name>.md` through the
-API. The qa agent you talk to has the standards of the qa agent that opens the
+All four paths read the same agent definitions from the code repo — Path A and
+B by checking it out, Paths C and D by fetching `.claude/agents/<name>.md` through
+the API. The qa agent you talk to has the standards of the qa agent that opens the
 pull request, rather than being a second personality with the same name. That is
 the point of keeping them in git.
 
@@ -129,7 +174,7 @@ Agent tiers: `week1`, `week2`, `full`.
 | Events (for analytics) | Postgres `gh_event` | Written by webhook |
 | Agent runs, cost | Postgres | Written by platform and workflow callback |
 | People, leave, goals, notes | Postgres | Owned entirely here |
-| Code | GitHub | Never touched |
+| Code | GitHub | Written only by a Path D run: one commit on its own `agent/*` branch, and a pull request. Never pushed to the default branch, never merged by the platform without branch protection agreeing |
 
 ## Environments
 

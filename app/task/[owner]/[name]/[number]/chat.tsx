@@ -13,8 +13,9 @@
 // the thing people assume is shared.
 
 import { useEffect, useRef, useState } from "react";
-import { AGENTS, agentName } from "@/app/lib/agents";
+import { agentName } from "@/app/lib/agents";
 import Dispatch, { type Me } from "./dispatch";
+import AgentGrid from "./agent-grid";
 
 type Msg = {
   role: "user" | "assistant" | "run";
@@ -56,7 +57,7 @@ function rich(text: string) {
 }
 
 export default function Chat({
-  owner, name, issue, initialAgent, history, me,
+  owner, name, issue, initialAgent, history, me, picker = true,
 }: {
   owner: string;
   name: string;
@@ -64,6 +65,8 @@ export default function Chat({
   initialAgent: string;
   history: { agent: string; messages: Msg[] };
   me: Me;
+  /** False where the page has its own agent list, as /agents does. */
+  picker?: boolean;
 }) {
   const [agent, setAgent] = useState(initialAgent);
   const [msgs, setMsgs] = useState<Msg[]>(history.agent === initialAgent ? history.messages : []);
@@ -179,21 +182,23 @@ export default function Chat({
 
   return (
     <div className="chat">
-      <div className="chat-top">
-        <select value={agent} disabled={busy} onChange={(e) => switchAgent(e.target.value)}>
-          {AGENTS.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-        {spent > 0 && <span className="muted small">{`$${spent.toFixed(4)} this session`}</span>}
-      </div>
+      {picker && <AgentGrid value={agent} me={me} disabled={busy} onPick={switchAgent} />}
+
+      {spent > 0 && (
+        <div className="chat-top">
+          <span className="muted small">{`$${spent.toFixed(4)} this session`}</span>
+        </div>
+      )}
 
       <div className="msgs">
         {msgs.length === 0 && !busy && (
           <p className="muted small" style={{ margin: 0 }}>
-            Ask about this task — what it needs, how the code around it works,
-            whether the approach is right. The agent can read the repository and
-            think with you. It cannot change anything itself: when you know what
-            should happen, <strong>Have {agentName(agent)} do this</strong> sends
-            it to a real run in GitHub Actions, which opens a pull request.
+            Ask {agentName(agent)} about this task — what it needs, how the code
+            around it works, whether the approach is right. Talking changes
+            nothing. When you know what should happen,{" "}
+            <strong>Have {agentName(agent)} do this</strong> starts a real run —
+            right here through the Claude API, or in GitHub Actions — which opens
+            a pull request. You do not have to talk to it first.
           </p>
         )}
         {msgs.map((m, i) => (
@@ -220,7 +225,7 @@ export default function Chat({
       {err && <div className="error">{err}</div>}
 
       {/* Where the conversation becomes work. The chat cannot change anything;
-          this dispatches agent-run.yml, which can. */}
+          a run — through the Claude API or in GitHub Actions — can. */}
       <Dispatch
         owner={owner}
         name={name}
@@ -228,18 +233,12 @@ export default function Chat({
         agent={agent}
         suggested={lastAsked}
         me={me}
-        onDispatched={(text) =>
+        onDispatched={(line) =>
           // Local only, and deliberately not written to chat_message: the
-          // record of a run is the agent_run row and the pull request that
-          // comes back through the webhook. This line is a receipt for the
-          // person who pressed the button, not a second copy of the truth.
-          setMsgs((m) => [
-            ...m,
-            {
-              role: "run",
-              content: `Dispatched to ${agentName(agent)} in GitHub Actions: “${text}” — the pull request will appear under “What proves it” when it opens.`,
-            },
-          ])
+          // record of a run is the agent_run row and the pull request. This
+          // line is a receipt for the person who pressed the button, not a
+          // second copy of the truth.
+          setMsgs((m) => [...m, { role: "run", content: line }])
         }
       />
 
