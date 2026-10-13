@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return refuse(401, "Sign in first.");
   if (!session.user.login) {
-    return refuse(403, "Link your GitHub account before running an agent. Its commit and pull request are attributed by GitHub login, and an account without one cannot own work.");
+    return refuse(403, "Connect your GitHub account (Connect GitHub, at the top of the Ops Board) before running an agent. Its commit and pull request are attributed by GitHub login, and an account without one cannot own work.");
   }
 
   let body: any;

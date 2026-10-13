@@ -98,7 +98,7 @@ export async function POST(req: Request) {
   }
   if (!session.user.login) {
     return NextResponse.json(
-      { error: "Link your GitHub account first. These become GitHub issues, and every one of them is attributed by GitHub login." },
+      { error: "Connect your GitHub account (Connect GitHub, at the top of the Ops Board) first. These become GitHub issues, and every one of them is attributed by GitHub login." },
       { status: 403 }
     );
   }

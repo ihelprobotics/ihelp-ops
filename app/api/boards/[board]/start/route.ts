@@ -36,7 +36,7 @@ export const maxDuration = 30;
 
 const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/;
 const NO_LOGIN =
-  "Link your GitHub account to start a task. Tasks are GitHub issues, and everything that happens to one is attributed by GitHub login.";
+  "Connect your GitHub account (Connect GitHub, at the top of the Ops Board) to start a task. Tasks are GitHub issues, and everything that happens to one is attributed by GitHub login.";
 
 type Ctx = { params: Promise<{ board: string }> };
 

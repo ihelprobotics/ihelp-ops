@@ -39,7 +39,7 @@ export default async function TeamPage() {
         {session?.user && (
           <div className="who">
             <b>{session.user.name}</b>
-            <span>{session.user.login ? `@${session.user.login}` : "GitHub not linked"}</span>
+            <span>{session.user.login ? `@${session.user.login}` : <a className="ghconnect" href="/api/github/connect">Connect GitHub</a>}</span>
           </div>
         )}
       </header>

@@ -110,6 +110,15 @@ session happened, on which branch, for how long. Never what was typed.
 **A linked GitHub login is required to start a task or run an agent.** Reading
 and leave are open to unlinked accounts.
 
+**A person links their own GitHub login by signing in to GitHub** (Connect
+GitHub, 2026-10-13; `app/api/github/`). The login saved is the one GitHub says
+signed in, so it can't be mistyped or claim somebody else's. It must be a member
+of `GH_ORG`, since an outsider can't be assigned issues, and it can't already
+belong to another account. The OAuth request asks for no scopes, and the token
+it returns is used once to read the login and never stored: Ops acts on GitHub
+only with `GH_DISPATCH_TOKEN`. Each link is a `role_change` line with the person
+as actor. Admins can still set or clear a login on the Admin page.
+
 **Nothing is written about a person that the person cannot read.** No private
 manager files. Enforced in row-level security, not in a guideline.
 

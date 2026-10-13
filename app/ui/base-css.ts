@@ -220,6 +220,13 @@ export const BASE_CSS = `
   .notice { background: var(--amber-bg); color: var(--amber); }
   .error  { background: var(--danger-bg); color: var(--danger); }
   .ok     { background: var(--accent-bg); color: var(--accent-ink); }
+
+  /* Connect GitHub: the one action an unlinked account can't work without. */
+  .ghconnect {
+    display: inline-block; background: var(--accent); color: #fff; font-weight: 600;
+    font-size: 12px; padding: 4px 10px; border-radius: var(--radius-sm); text-decoration: none;
+  }
+  .ghconnect:hover { background: var(--accent-ink); color: #fff; }
   .notice code, .error code { font-family: var(--mono); font-size: 13px; }
 
   code {

@@ -79,7 +79,7 @@ export async function POST(req: Request, { params }: Ctx) {
   // app/lib/assign.ts decide whether this particular person may.
   if (action !== "assign" && !login) {
     return NextResponse.json(
-      { error: "Link your GitHub account first. Branches, pull requests and comments are attributed by GitHub login, and an unlinked account cannot own work." },
+      { error: "Connect your GitHub account (Connect GitHub, at the top of the Ops Board) first. Branches, pull requests and comments are attributed by GitHub login, and an unlinked account cannot own work." },
       { status: 403 }
     );
   }

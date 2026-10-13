@@ -21,19 +21,22 @@ import BoardCard from "@/app/ui/board-card";
 import Filters, { type Show } from "@/app/ui/board-filters";
 import PlanCard, { PLAN_CARD_CSS } from "@/app/ui/plan-card";
 import { PLAN_BOARDS } from "@/app/lib/plan-boards";
+import { LINK_RESULT } from "@/app/lib/github-link";
 
 export const dynamic = "force-dynamic";
 
 export default async function BoardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ show?: string; repo?: string }>;
+  searchParams: Promise<{ show?: string; repo?: string; github?: string }>;
 }) {
   const session = await auth();
   const me = session?.user ?? null;
   const login = me?.login ?? null;
   const sp = await searchParams;
   const show: Show = sp.show === "mine" || sp.show === "open" ? sp.show : "all";
+  // What came of pressing Connect GitHub; /api/github/callback sends the code.
+  const linked = sp.github ? LINK_RESULT[sp.github] ?? null : null;
 
   let board: Board | null = null;
   let error = "";
@@ -82,18 +85,24 @@ export default async function BoardPage({
           <div className="who">
             <b>{me.name}</b>
             <span>
-              {login ? `@${login}` : <em className="warn">GitHub not linked</em>}
+              {login
+                ? <>@{login} · <a href="/api/github/connect" title="Connect a different GitHub account">change</a></>
+                : <a className="ghconnect" href="/api/github/connect">Connect GitHub</a>}
               {me.pod ? ` · ${me.pod}` : ""}
             </span>
           </div>
         )}
       </header>
 
+      {linked && <div className={linked.ok ? "ok" : "error"}>{linked.text}</div>}
+
       {me && !login && (
         <div className="notice">
-          Link your GitHub account to take a task or run an agent on one. Work is
-          attributed by GitHub login — commits, reviews and CODEOWNERS all use it —
-          so an unlinked account can read the board but cannot own anything on it.
+          <a className="ghconnect" href="/api/github/connect">Connect GitHub</a>{" "}
+          to take a task, be assigned one or run an agent. Work is attributed by
+          GitHub login — commits, reviews and CODEOWNERS all use it — so an
+          unlinked account can read the board but cannot own anything on it.
+          GitHub asks you to sign in once; Ops saves only your username.
         </div>
       )}
 
