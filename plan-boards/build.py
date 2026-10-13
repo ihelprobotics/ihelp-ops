@@ -32,6 +32,14 @@ BOARDS = {
         "css": "sentinel.css",
         "own": [("family=Fraunces:opsz,wght@9..144,500;9..144,600", "family=Cormorant:wght@500;600;700", 2)],
     },
+    # Built on SENTINEL's template (same columns, palette and layout), so it
+    # takes the same stylesheet and face. Ops only, for now: no standalone site.
+    "spatialcast": {
+        "src": OPS / "SpatialCast Pro-build-board" / "SpatialCast Pro build board.html",
+        "site": None,
+        "css": "sentinel.css",
+        "own": [("family=Fraunces:opsz,wght@9..144,500;9..144,600", "family=Cormorant:wght@500;600;700", 2)],
+    },
 }
 
 read = lambda name: (HERE / name).read_text(encoding="utf-8")

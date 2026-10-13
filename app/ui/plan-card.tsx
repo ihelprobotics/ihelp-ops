@@ -1,4 +1,4 @@
-// A build plan (MITRA, SENTINEL), as one card at the top of the Ops board.
+// A build plan (MITRA, SENTINEL, SpatialCast Pro), as one card at the top of the Ops board.
 //
 // A plan is not work — most of its rows have not been started — so its tasks
 // are not spread through the four columns, where a plan row would sit in Not

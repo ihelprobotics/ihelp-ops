@@ -12,7 +12,7 @@ export type Closed = null | "completed" | "not_planned";
 
 export type PlanBoard = {
   key: string;
-  /** How people refer to it: "MITRA", "SENTINEL". */
+  /** How people refer to it: "MITRA", "SENTINEL", "SpatialCast Pro". */
   name: string;
   /** The heading of its card on the Ops board. */
   title: string;
@@ -45,6 +45,11 @@ export const PLAN_BOARDS: Record<string, PlanBoard> = {
   // SENTINEL's plan has no deferred column, and "Needs verification" is its
   // word for a change waiting on review.
   sentinel: { key: "sentinel", name: "SENTINEL", title: "SENTINEL elderly-care build", columnFor: ladder("Needs verification", null) },
+  // Written on SENTINEL's template, so it has SENTINEL's columns.
+  spatialcast: {
+    key: "spatialcast", name: "SpatialCast Pro", title: "SpatialCast Pro build", columnFor: ladder("Needs verification", null),
+    repo: "ihelprobotics/spatial-immersion",
+  },
 };
 
 /** The board for a route's `[board]` segment, or null for one that does not exist. */

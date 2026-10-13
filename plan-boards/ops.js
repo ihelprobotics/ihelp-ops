@@ -22,7 +22,9 @@ function applyLive(){
 // itself is app/lib/progress.ts and the columns app/lib/plan-boards.ts; this
 // only puts it in words, so a person who tries to drag the card learns what
 // would move it instead of only that it won't.
-const REVIEW_COL=/\/sentinel$/.test(OPS_API)?"Needs verification":"In review";
+// Read from the board's own columns, not its URL, so a new board built on
+// either template says the right words without a change here.
+const REVIEW_COL=STATUSES.includes("Needs verification")?"Needs verification":"In review";
 const slug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").split("-").filter(Boolean).slice(0,4).join("-")||"work";
 function branchFor(t){const ref=linkOf(t);return ref?`task/${ref.split("#")[1]}/${slug(t.title)}`:"";}
 function moveHow(t){
@@ -284,15 +286,17 @@ async function runBulk(ids,repo){
 /* ---------- How to use this board (top of the Overview) ---------- */
 // Built from the same settings the board runs on — the review column's name,
 // the plan's repository — so the rules can't say something the board doesn't do.
-const IS_SENTINEL=/\/sentinel$/.test(OPS_API);
+// SENTINEL and SpatialCast are one template (an Existing column, no Deferred);
+// MITRA is the other. Asked of the columns, as REVIEW_COL is.
+const HAS_EXISTING=STATUSES.includes("Existing"), DEFERRED=STATUSES.find(s=>/^Deferred/.test(s));
 function rulesHTML(){
   const home=START&&START.home, code=s=>`<code>${esc(s)}</code>`;
   const repoLine=home?`Use ${code(home)}, where the app is built. It is picked for you.`:`Pick the repository the work will be done in.`;
-  const notPlanned=IS_SENTINEL?"":` Closing it as "not planned" moves it to Deferred (v1.1).`;
+  const notPlanned=DEFERRED?` Closing it as "not planned" moves it to ${esc(DEFERRED)}.`:"";
   const rules=[
     [`Plan freely until a task starts.`,
      `A card without a #number is still a plan. Edit it, drag it between columns or delete it. Every change saves for the whole team straight away.`+
-     (IS_SENTINEL?` "Existing" is a planning column: the code is there but nobody has shown it working live. Start the task to prove it.`:"")],
+     (HAS_EXISTING?` "Existing" is a planning column: the code is there but nobody has shown it working live. Start the task to prove it.`:"")],
     [`Start a task by assigning it.`,
      `Open the task, then under <b>Assign and start in Ops</b> pick the person and the repository and press <b>Open the issue</b>. That opens a GitHub issue with them on it, and the card shows its number. ${repoLine} `+
      `Only a lead, the CTO or the founder can give a task to someone else; anyone can take one for themselves. Your GitHub login must be linked to your Ops account.`+
@@ -304,14 +308,14 @@ function rulesHTML(){
      `<li><b>Done</b>: merge the pull request, or close the issue.${notPlanned}</li></ul>`+
      `The board checks GitHub about once a minute.`],
     [`Name the branch by the issue number, not the task ID.`,
-     `If a task's issue is #2, its branch is ${code("task/2/…")}, not ${code(IS_SENTINEL?"task/SEN-001/…":"task/F-02/…")}. The task's drawer shows the exact name with a Copy button. A branch only counts once it is pushed to GitHub, in the same repository as the issue.`],
+     `If a task's issue is #2, its branch is ${code("task/2/…")}, not ${code(`task/${(S.tasks[0]&&S.tasks[0].id)||"F-02"}/…`)}. The task's drawer shows the exact name with a Copy button. A branch only counts once it is pushed to GitHub, in the same repository as the issue.`],
     [`Open the issue in the right repository the first time.`,
      `Moving an issue to another repository gives it a new number, and the board link and branch name then have to be fixed by hand.`],
     [`Mark your commits.`,
      `End a commit message with ${code("iHelp-Task: #<issue number>")} and the task's page in Ops lists that commit as evidence.`],
     [`Change who has it from the drawer.`,
      `Assigning there, or on the GitHub issue, changes the card. If you can't do a task you hold, press <b>Hand it back</b>.`],
-    IS_SENTINEL?[`Done means proven.`,
+    HAS_EXISTING?[`Done means proven.`,
      `A task is done only when its "Done when" test is met with evidence. Put that evidence in the pull request before it is merged.`]:null,
     [`Done cards link to the work.`,
      `<b>View commit</b> and <b>View PR</b> on a Done card open what finished it on GitHub.`],

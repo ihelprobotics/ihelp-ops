@@ -1,7 +1,7 @@
 // GET  /api/boards/<board>/board[?rev=n]  — the whole board, or { unchanged } when rev is current.
 // POST /api/boards/<board>/board          — { ops: [...] } field-level edits, or { seed } once.
 //
-// <board> is one of PLAN_BOARDS (app/lib/plan-boards.ts): mitra, sentinel.
+// <board> is one of PLAN_BOARDS (app/lib/plan-boards.ts): mitra, sentinel, spatialcast.
 //
 // Any signed-in person may edit the plan. What they cannot do is type a status
 // for a task that has been started in Ops, or write its link — the store drops

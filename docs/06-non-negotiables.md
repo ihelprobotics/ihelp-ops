@@ -49,6 +49,13 @@ same rows **without sign-in**: anyone with the link can read and edit the plan,
 including any names typed on planning rows. They show no live GitHub status and
 cannot start a task; a linked row there is marked as following its issue in Ops.
 
+The SpatialCast Pro build board (`/spatialcast`, 2026-10-14) is a third plan
+under the same rules, written on SENTINEL's template: the same columns and
+stylesheet, its own keys (`spatialcast:*`), and tasks starting in
+`ihelprobotics/spatial-immersion`. It has no standalone copy. The Ops layer
+(`plan-boards/ops.js`) takes its column words from each board's own columns
+rather than from its URL, so a board on either template needs no change there.
+
 A card in a plan's Done column carries **View commit** and **View PR**
 (2026-10-12), opened from the `pr_merged` event Ops recorded for its issue.
 They were asked for as Commit and Push buttons; they link instead, because a

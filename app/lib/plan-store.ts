@@ -22,7 +22,7 @@
 // for no gain in what the board can do; later boards share it so there is one
 // store, not two. No npm dependency — this is fetch.
 //
-// Layout, for <b> the board's key (mitra, sentinel):
+// Layout, for <b> the board's key (mitra, sentinel, spatialcast):
 //   <b>:rev            integer, bumped on every write (clients poll it)
 //   <b>:seeded         set once when the board is first loaded from the page
 //   <b>:tids           sorted set: task id -> display order

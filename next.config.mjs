@@ -67,7 +67,7 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'" + (DEV ? " 'unsafe-eval'" : ""),
-      // Google Fonts, for the build boards' typefaces (/mitra, /sentinel). Stylesheets and
+      // Google Fonts, for the build boards' typefaces (/mitra, /sentinel, /spatialcast). Stylesheets and
       // font files only: neither can run code or send anything anywhere.
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
@@ -102,6 +102,7 @@ const nextConfig = {
     return [
       { source: "/mitra", destination: "/mitra/index.html" },
       { source: "/sentinel", destination: "/sentinel/index.html" },
+      { source: "/spatialcast", destination: "/spatialcast/index.html" },
     ];
   },
 };

@@ -3,6 +3,7 @@
 .env*
 mitra-build-board/
 sentinel-build-board/
+SpatialCast Pro-build-board/
 plan-boards/
 .agents/
 .claude/
